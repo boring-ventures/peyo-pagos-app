@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "HelloWorld",
-    "slug": "expo-template-default",
+    "name": "Boring Template Expo",
+    "slug": "boring-template-expo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,13 +9,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.boringinc.boringtemplateexpo"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.boringinc.boringtemplateexpo"
     },
     "web": {
       "bundler": "metro",
@@ -36,6 +38,18 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "538dea78-77a0-4dc8-a067-4d4c41831fe9"
+      }
+    },
+    "owner": "boring.inc",
+    "updates": {
+      "url": "https://u.expo.dev/538dea78-77a0-4dc8-a067-4d4c41831fe9"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }
