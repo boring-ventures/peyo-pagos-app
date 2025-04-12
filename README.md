@@ -1,50 +1,88 @@
-# Welcome to your Expo app 👋
+# Boring Template Expo
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Una plantilla avanzada para aplicaciones Expo con autenticación completa y un sistema moderno de navegación.
 
-## Get started
+## Características
 
-1. Install dependencies
+- 🔐 Autenticación completa con Supabase
+- 📱 Navegación con Expo Router
+- 🎨 UI basada en NativeBase
+- 📋 Formularios con Formik y Yup
+- 🗃️ Gestión de estado con Zustand
+- 📦 API HTTP con Axios
 
-   ```bash
-   npm install
-   ```
+## Requisitos Previos
 
-2. Start the app
+- Node.js 16+
+- npm o yarn
+- Expo CLI
+- Una cuenta en [Expo](https://expo.dev/signup) (necesaria para algunas funcionalidades)
 
-   ```bash
-    npx expo start
-   ```
+## Instalación
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Clona el repositorio:
 
 ```bash
-npm run reset-project
+git clone https://github.com/your-username/boring-template-expo.git
+cd boring-template-expo
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Instala las dependencias:
 
-## Learn more
+```bash
+npm install
+# o
+yarn install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+3. Configura las variables de entorno:
+   - Crea un archivo `.env` en la raíz del proyecto
+   - Añade las variables necesarias (ver [SETUP_SUPABASE.md](./SETUP_SUPABASE.md) para más detalles)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Iniciar la Aplicación
 
-## Join the community
+Para probar la aplicación en tu dispositivo móvil, primero necesitas instalar Expo Go:
 
-Join our community of developers creating universal apps.
+- En Android: [Expo Go en Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent)
+- En iOS: [Expo Go en App Store](https://apps.apple.com/app/apple-store/id982107779)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx expo start --go
+```
+
+También puedes usar la opción `--dev-client` si has creado un cliente de desarrollo personalizado:
+
+```bash
+npx expo start --dev-client
+```
+
+## Estructura del Proyecto
+
+```
+boring-template-expo/
+├── app/                    # Aplicación principal (Expo Router)
+│   ├── (private)/          # Rutas autenticadas
+│   ├── (public)/           # Rutas públicas
+│   ├── (auth)/             # Restaurar sesión
+│   ├── components/         # Componentes reutilizables
+│   ├── hooks/              # Hooks personalizados
+│   ├── services/           # Servicios (API, etc.)
+│   ├── stores/             # Gestión de estado (Zustand)
+│   ├── types/              # Tipos TypeScript
+│   ├── utils/              # Utilidades
+│   └── index.tsx           # Punto de entrada
+├── assets/                 # Imágenes, fuentes, etc.
+└── ...
+```
+
+## Configuración
+
+Para configurar Supabase para autenticación, consulta [SETUP_SUPABASE.md](./SETUP_SUPABASE.md).
+
+## Contribución
+
+Las contribuciones son bienvenidas! Por favor, lee las [directrices de contribución](./CONTRIBUTING.md) antes de enviar un pull request.
+
+## Licencia
+
+Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](./LICENSE) para más detalles.
