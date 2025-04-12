@@ -23,7 +23,7 @@ Una plantilla avanzada para aplicaciones Expo con autenticación completa y un s
 1. Clona el repositorio:
 
 ```bash
-git clone https://github.com/your-username/boring-template-expo.git
+[git clone https://github.com/your-username/boring-template-expo.git](https://github.com/IntiRraptor/boring-template-expo.git)
 cd boring-template-expo
 ```
 
