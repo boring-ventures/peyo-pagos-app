@@ -41,12 +41,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "538dea78-77a0-4dc8-a067-4d4c41831fe9"
+        "projectId": "8ba01203-a27b-4497-8c25-16641de49cb8"
       }
     },
-    "owner": "boring.inc",
+    "owner": "boring-ventures",
     "updates": {
-      "url": "https://u.expo.dev/538dea78-77a0-4dc8-a067-4d4c41831fe9"
+      "url": "https://u.expo.dev/8ba01203-a27b-4497-8c25-16641de49cb8"
     },
     "runtimeVersion": {
       "policy": "appVersion"
