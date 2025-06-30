@@ -1,0 +1,31 @@
+---
+description: Ensures all new components follow established patterns, are only created when no reusable version exists, and strictly follow TypeScript and StyleSheet conventions.
+globs: 
+alwaysApply: false
+---
+You are managing component architecture in an Expo React Native project with TypeScript.
+
+Component Reusability & Structure
+- Before creating a new component, check if a similar component exists in `app/components/`.
+- Only create a new component if no reusable match is found in terms of purpose or structure.
+- Match by prop signatures, roles (e.g., buttons, avatars, form fields), or visual use-case.
+
+Component Standards
+- Use PascalCase for component filenames and exported component names.
+- Use TypeScript and functional components only.
+- Group files by component folder if additional files (e.g., styles, subcomponents) are needed.
+- Place new components inside `app/components/`.
+
+Styling
+- Use React Native's `StyleSheet.create()` for all styles.
+- Use the theme system (`useThemeColor`) for colors, not hardcoded values.
+
+Props and Types
+- Use clearly typed props interfaces.
+- Accept style and children props if relevant.
+- Keep component logic minimal — extract business logic to hooks or services.
+
+Examples:
+- ✅ `FormField`, `ThemedButton`, `UserAvatar`
+- ❌ Avoid generic names like `MyComponent` or `Component1`
+

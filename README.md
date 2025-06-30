@@ -1,88 +1,86 @@
 # Boring Template Expo
 
-Una plantilla avanzada para aplicaciones Expo con autenticación completa y un sistema moderno de navegación.
+An advanced template for Expo applications with full authentication and a modern navigation system.
 
-## Características
+## Features
 
-- 🔐 Autenticación completa con Supabase
-- 📱 Navegación con Expo Router
-- 🎨 UI basada en NativeBase
-- 📋 Formularios con Formik y Yup
-- 🗃️ Gestión de estado con Zustand
-- 📦 API HTTP con Axios
+- 🔐 Full authentication with Supabase
+- 📱 Navigation with Expo Router
+- 🎨 UI with React Native components and StyleSheet
+- 📋 Forms with Formik and Yup
+- 🗃️ State management with Zustand
 
-## Requisitos Previos
+## Prerequisites
 
 - Node.js 16+
-- npm o yarn
+- npm or yarn
 - Expo CLI
-- Una cuenta en [Expo](https://expo.dev/signup) (necesaria para algunas funcionalidades)
+- An [Expo account](https://expo.dev/signup) (required for some features)
 
-## Instalación
+## Installation
 
-1. Clona el repositorio:
+1. Clone the repository:
 
 ```bash
 git clone https://github.com/your-username/boring-template-expo.git
 cd boring-template-expo
 ```
 
-2. Instala las dependencias:
+2. Install dependencies:
 
 ```bash
 npm install
-# o
+# or
 yarn install
 ```
 
-3. Configura las variables de entorno:
-   - Crea un archivo `.env` en la raíz del proyecto
-   - Añade las variables necesarias (ver [SETUP_SUPABASE.md](./SETUP_SUPABASE.md) para más detalles)
+3. Configure environment variables:
+   - Create a `.env` file in the project root
+   - Add the required variables (see [SETUP_SUPABASE.md](./SETUP_SUPABASE.md) for details)
 
-## Iniciar la Aplicación
+## Running the App
 
-Para probar la aplicación en tu dispositivo móvil, primero necesitas instalar Expo Go:
+To test the app on your mobile device, first install Expo Go:
 
-- En Android: [Expo Go en Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent)
-- En iOS: [Expo Go en App Store](https://apps.apple.com/app/apple-store/id982107779)
+- On Android: [Expo Go on Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent)
+- On iOS: [Expo Go on App Store](https://apps.apple.com/app/apple-store/id982107779)
 
 ```bash
 npx expo start --go
 ```
 
-También puedes usar la opción `--dev-client` si has creado un cliente de desarrollo personalizado:
+You can also use the `--dev-client` option if you have created a custom development client:
 
 ```bash
 npx expo start --dev-client
 ```
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 boring-template-expo/
-├── app/                    # Aplicación principal (Expo Router)
-│   ├── (private)/          # Rutas autenticadas
-│   ├── (public)/           # Rutas públicas
-│   ├── (auth)/             # Restaurar sesión
-│   ├── components/         # Componentes reutilizables
-│   ├── hooks/              # Hooks personalizados
-│   ├── services/           # Servicios (API, etc.)
-│   ├── stores/             # Gestión de estado (Zustand)
-│   ├── types/              # Tipos TypeScript
-│   ├── utils/              # Utilidades
-│   └── index.tsx           # Punto de entrada
-├── assets/                 # Imágenes, fuentes, etc.
+├── app/                    # Main application (Expo Router)
+│   ├── (private)/          # Authenticated routes
+│   ├── (public)/           # Public routes
+│   ├── (auth)/             # Session restore
+│   ├── components/         # Reusable components
+│   ├── hooks/              # Custom hooks
+│   ├── services/           # Services (API, etc.)
+│   ├── store/              # State management (Zustand)
+│   ├── constants/          # Shared constants
+│   └── index.tsx           # Entry point
+├── assets/                 # Images, fonts, etc.
 └── ...
 ```
 
-## Configuración
+## Configuration
 
-Para configurar Supabase para autenticación, consulta [SETUP_SUPABASE.md](./SETUP_SUPABASE.md).
+To set up Supabase authentication, see [SETUP_SUPABASE.md](./SETUP_SUPABASE.md).
 
-## Contribución
+## Contributing
 
-Las contribuciones son bienvenidas! Por favor, lee las [directrices de contribución](./CONTRIBUTING.md) antes de enviar un pull request.
+Contributions are welcome! Please read the [contribution guidelines](./CONTRIBUTING.md) before submitting a pull request.
 
-## Licencia
+## License
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](./LICENSE) para más detalles.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.

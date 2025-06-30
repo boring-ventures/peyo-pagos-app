@@ -1,23 +1,23 @@
-# Configuración de Supabase para la autenticación
+# Supabase Setup for Authentication
 
-Este documento describe cómo configurar Supabase para la autenticación en la aplicación.
+This document describes how to set up Supabase for authentication in the app.
 
-## Paso 1: Crear una cuenta en Supabase
+## Step 1: Create a Supabase Account
 
-1. Ve a [Supabase](https://supabase.com/) y crea una cuenta o inicia sesión.
-2. Crea un nuevo proyecto.
-3. Anota el URL y la clave anónima de tu proyecto que necesitarás más adelante.
+1. Go to [Supabase](https://supabase.com/) and create an account or log in.
+2. Create a new project.
+3. Note your project's URL and anon key, which you'll need later.
 
-## Paso 2: Configurar la autenticación
+## Step 2: Configure Authentication
 
-1. En la interfaz de Supabase, ve a "Authentication" > "Settings".
-2. Asegúrate de que la opción de "Email Auth" esté habilitada.
-3. Configura la URL de redirección si es necesario.
+1. In the Supabase dashboard, go to "Authentication" > "Settings".
+2. Make sure "Email Auth" is enabled.
+3. Set the redirect URL if needed.
 
-## Paso 3: Crear la tabla de perfiles
+## Step 3: Create the Profiles Table
 
-1. Ve a "SQL Editor" en Supabase.
-2. Ejecuta el siguiente código SQL para crear la tabla de perfiles:
+1. Go to "SQL Editor" in Supabase.
+2. Run the following SQL to create the profiles table:
 
 ```sql
 CREATE TABLE profiles (
@@ -31,10 +31,10 @@ CREATE TABLE profiles (
 );
 ```
 
-3. Luego, en otro "snnipet" ejecuta el siguiente código SQL para crear las funciones y el trigger:
+3. Then, run the following SQL to create the trigger and function:
 
 ```sql
--- Crear una función que se ejecutará después de un registro
+-- Create a function to run after a user registers
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user;
 
@@ -54,37 +54,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Crear un trigger para cuando se crea un nuevo usuario
+-- Create a trigger for new users
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 ```
 
-## Paso 4: Configurar las variables de entorno
+## Step 4: Configure Environment Variables
 
-1. Crea un archivo `.env` en la raíz del proyecto (o edita el existente).
-2. Añade las siguientes variables:
+1. Create a `.env` file in the project root (or edit the existing one).
+2. Add the following variables:
 
 ```env
-EXPO_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=tu-clave-anon
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 EXPO_PUBLIC_SUPABASE_STORAGE_BUCKET=avatars
-
 ```
 
-Reemplaza los valores con los de tu proyecto de Supabase.
+Replace the values with those from your Supabase project.
 
-## Paso 5: Reiniciar la aplicación
+## Step 5: Restart the App
 
-1. Detén la aplicación si está en ejecución.
-2. Ejecuta `npx expo start --go` para reiniciar la aplicación con las nuevas variables de entorno.
+1. Stop the app if it's running.
+2. Run `npx expo start --go` to restart the app with the new environment variables.
 
-## Paso 6: Configurar las políticas de almacenamiento
+## Step 6: Configure Storage Policies
 
-1. Ve a "Storage" en Supabase.
-2. Crea un nuevo bucket con el nombre `avatars` y activa la opción `Public Bucket`.
-3. Ve a "SQL Editor" en Supabase.
-2. Ejecuta el siguiente código SQL para configurar las políticas de almacenamiento necesarias para subir imágenes al bucket `avatars`.
+1. In Supabase, go to "Storage".
+2. Create a new bucket named `avatars` and enable the `Public Bucket` option.
+3. Go to "SQL Editor" in Supabase.
+4. Run the following SQL to set up storage policies for uploading images to the `avatars` bucket:
 
 ```sql
 -- Setup SQL for storage policies for avatars bucket
@@ -131,9 +130,9 @@ USING (
 );
 ```
 
-## Solución de problemas
+## Troubleshooting
 
-- Si tienes problemas con la autenticación, verifica los logs en la consola de desarrollo.
-- Asegúrate de que las variables de entorno estén configuradas correctamente.
-- Verifica que la tabla de perfiles se haya creado correctamente en Supabase.
-- Comprueba que la autenticación con email esté habilitada en Supabase.
+- If you have issues with authentication, check the logs in the development console.
+- Make sure your environment variables are set correctly.
+- Verify that the profiles table was created successfully in Supabase.
+- Ensure that email authentication is enabled in Supabase.

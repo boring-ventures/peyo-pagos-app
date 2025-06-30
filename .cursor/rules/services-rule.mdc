@@ -1,0 +1,37 @@
+---
+description: Restricts API and backend interactions to Supabase only. Prevents redundant packages or services and enforces use of the official Supabase client in the app/services/ directory.
+globs: 
+alwaysApply: false
+---
+You are managing service layer logic in a TypeScript-based Expo project using Supabase.
+
+Supabase Docs
+- Use the official documentation of supabase:
+https://supabase.com/docs
+
+API and Services
+- All backend and authentication interactions must use Supabase (`@supabase/supabase-js`).
+- Avoid introducing additional API libraries (e.g., Axios, Fetch) unless explicitly required.
+- If an API service is needed, check `app/services/` for an existing implementation first.
+
+File Structure
+- All service logic must live under `app/services/`.
+- Each service should handle one responsibility (e.g., `authService.ts`, `profileService.ts`).
+- Supabase client setup must exist in `supabaseClient.ts` and be reused across all services.
+
+Auth and Data
+- Use Supabase auth functions (signIn, signOut, etc.) from the official documentation:
+  https://supabase.com/docs/reference/javascript/auth-signin
+- Use Supabase database queries for CRUD operations.
+- Prefer RPC functions or Supabase edge functions for custom logic if available.
+
+Patterns
+- Return typed responses from services.
+- Handle loading, error, and success states at the component/store level — keep services clean and logic-light.
+- Don't mix UI logic with data fetching logic.
+
+Do not create:
+- Redundant wrappers around Supabase.
+- Services that combine unrelated concerns.
+
+

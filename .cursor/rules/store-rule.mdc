@@ -1,0 +1,40 @@
+---
+description: Enforces consistent global state management using Zustand in the `app/store/` directory. It includes support for persistent storage with `@react-native-async-storage/async-storage` when necessary.
+globs: 
+alwaysApply: false
+---
+You are an expert in global state management using Zustand within Expo and React Native TypeScript projects.
+
+Zustand Usage & Structure
+
+- All application-wide state must use Zustand.
+- Do not use Context API or Redux—Zustand is the enforced pattern.
+- Store files must be created in `app/store/`, named descriptively (e.g., `authStore.ts`, `themeStore.ts`).
+- Each store should:
+  - Be implemented in TypeScript.
+  - Use the `create` function from Zustand.
+  - Export a named hook, e.g., `useAuthStore`.
+  - Define state first, then grouped actions.
+  - Include clear typings for both state and actions via TypeScript interfaces.
+
+Persistence
+
+- If persistent state is needed, use Zustand's `persist` middleware.
+- Use `@react-native-async-storage/async-storage` as the storage backend:
+  ```ts
+  import AsyncStorage from "@react-native-async-storage/async-storage";
+  ```
+- Specify storage: AsyncStorage inside the persist config.
+- Only persist state that must survive app restarts (e.g., auth session, theme preference).
+- Never persist sensitive data like Supabase tokens directly in AsyncStorage.
+
+Consistency & Maintainability
+
+- Hook names must start with use, such as useUserStore, useSettingsStore.
+- Prevent redundant or duplicated store logic.
+- If a store grows too large, recommend splitting it into smaller focused files/modules.
+
+Resources
+- Zustand Docs: https://docs.pmnd.rs/zustand/getting-started/introduction
+
+- AsyncStorage Docs: https://react-native-async-storage.github.io/async-storage/docs/usage/

@@ -1,0 +1,164 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Expo React Native TypeScript – Adapted Cursor Rule
+# Purpose: Ensure consistency, correctness, and architectural alignment with the Boring Template Expo app structure
+
+---
+
+## 👷🏽‍♂️ Developer Identity
+You are an expert in TypeScript, React Native, Expo, and Mobile UI development. You are working inside a project that uses:
+- **Expo Router** for navigation
+- **Supabase** for backend/auth
+- **Zustand** for state
+- **Formik + Yup** for form handling
+- **React Native StyleSheet** for styling
+Avoid suggesting tools outside this stack.
+
+---
+
+## 📦 Project Structure
+
+Follow the structure defined in `.cursor/rules/structure.rule`:
+
+- Place all logic inside `app/`.
+- Only use existing folders: `(public)/`, `(private)/`, `(auth)/`, `components/`, `hooks/`, `services/`, `store/`, `constants/`.
+- Do not suggest or use the `app-example/` directory.
+
+---
+
+## 🧱 Component Creation & Conventions
+
+- Use **PascalCase** for component files and names (e.g., `ThemedButton.tsx`).
+- Place all reusable components in `app/components/` or subfolders.
+- All components must:
+  - Be functional (not classes)
+  - Use TypeScript and typed props
+  - Be modular, with clean separation between logic, styles, and helpers
+- Do not use:
+  - `styled-components`
+  - `tailwindcss`
+  - `native-base`
+
+All component styling must be done using `StyleSheet.create()` with styles placed inside the same file or abstracted as necessary.
+
+---
+
+## 🎨 Styling
+
+- Use only `StyleSheet.create()` from `react-native`.
+- Use custom theme via `useThemeColor` and `useColorScheme` (from `hooks/`).
+- Do not suggest or use:
+  - Inline styles (except minimal overrides)
+  - `styled-components`, `tailwindcss`, or NativeBase
+- Follow a responsive design approach using Flexbox and `useWindowDimensions`.
+
+---
+
+## 🌍 State Management
+
+- Use **Zustand** only.
+- All stores must be inside `app/store/` and follow the pattern: `xyzStore.ts`.
+- Do not use or recommend:
+  - Redux, MobX, Recoil, Context for global state
+  - `useState` for shared or cross-component state
+- Local state can use `useState`/`useEffect` inside components when isolated.
+
+---
+
+## 📜 Forms and Validation
+
+- Use **Formik** for form state.
+- Use **Yup** for schema validation.
+- Do not recommend React Hook Form or Zod.
+- Form layout must use components from `app/components/` (e.g., `FormField`).
+
+---
+
+## 📡 API & Services
+
+- Use **Supabase** exclusively for API and auth.
+- All API logic must go in `app/services/`.
+- Do not use or suggest:
+  - `axios`
+  - `fetch` directly (unless wrapped inside Supabase)
+  - External clients or REST wrappers
+
+---
+
+## 📘 TypeScript
+
+- Use strict TypeScript with `interface` (prefer over `type`).
+- Do not use `enum`; use const maps or union literals.
+- Use descriptive prop names like `isLoading`, `hasError`, etc.
+- Enforce strict null/undefined handling and optional chaining.
+
+---
+
+## 🧪 Testing
+
+- Use **Jest** and **jest-expo** only.
+- No test files are currently maintained in `app/`, do not suggest test generation unless this policy changes.
+- Do not create snapshot tests unless asked.
+
+---
+
+## 📂 Naming and Exports
+
+- Use **named exports** for all components.
+- Use kebab-case for folders: e.g., `components/form-fields`.
+- Use PascalCase for files and component names: e.g., `FormField.tsx`.
+
+---
+
+## 🔐 Security
+
+- Use HTTPS for API access (handled via Supabase).
+- Do not recommend `react-native-encrypted-storage` unless Supabase-related use case arises.
+- Sanitize and validate user input via Yup schemas.
+
+---
+
+## 🧩 Navigation
+
+- Use `expo-router` for routing.
+- All pages should be placed inside `app/(public)/`, `app/(private)/`, or `app/(auth)/`.
+- Do not suggest traditional `react-navigation` stack setup — it’s abstracted by Expo Router.
+
+---
+
+## 📋 Dependency Management
+
+- All packages must:
+  - Serve a clear purpose aligned with current architecture
+  - Be installed via **npm**
+- Disallow adding:
+  - `axios`, `native-base`, `tailwindcss`, `styled-components`
+- Do not auto-generate changes to `README.md`
+
+---
+
+## 🧠 Final Practices & Optimizations
+
+- Minimize re-renders via `useMemo`, `useCallback`, `memo`.
+- Optimize startup with `expo-splash-screen` (if needed).
+- Use `expo-constants` for env/config access.
+- Do not hardcode paddings/margins for Safe Areas — use `react-native-safe-area-context`.
+
+---
+
+## 📌 Summary
+
+You are enforcing the following:
+- Strict architectural alignment with structure.rule
+- Use of only approved libraries (Zustand, Supabase, Formik, Yup)
+- React Native StyleSheet-only styling
+- Type-safe, functional, modular TypeScript components
+- Avoidance of legacy or third-party alternatives (Redux, Axios, styled-components)
+
+Only make changes or generate files that reinforce and extend this architecture.
+
+# End of Rule
+
