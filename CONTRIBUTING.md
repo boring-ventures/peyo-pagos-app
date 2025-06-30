@@ -1,69 +1,69 @@
-# Guía de Contribución
+# Contribution Guide
 
-¡Gracias por tu interés en contribuir a Boring Template Expo! Este documento proporciona directrices para contribuir al proyecto.
+Thank you for your interest in contributing to Boring Template Expo! This document provides guidelines for contributing to the project.
 
-## Proceso de Contribución
+## Contribution Process
 
-1. **Fork el repositorio** en GitHub.
-2. **Clona** tu fork localmente.
-3. **Crea una rama** para tu característica o corrección.
-4. **Implementa** tus cambios.
-5. **Ejecuta pruebas** para asegurarte de que no has roto nada.
-6. **Commit** tus cambios con mensajes descriptivos.
-7. **Push** a tu fork.
-8. **Envía un Pull Request** a la rama principal.
+1. **Fork the repository** on GitHub.
+2. **Clone** your fork locally.
+3. **Create a branch** for your feature or fix.
+4. **Implement** your changes.
+5. **Run tests** to ensure you haven't broken anything.
+6. **Commit** your changes with descriptive messages.
+7. **Push** to your fork.
+8. **Submit a Pull Request** to the main branch.
 
-## Convenciones de Código
+## Code Conventions
 
-- Utiliza TypeScript para todos los archivos de código.
-- Sigue el estilo de código existente.
-- Utiliza nombres descriptivos para variables y funciones.
-- Documenta las funciones y componentes complejos.
-- Mantén los componentes pequeños y enfocados.
+- Use TypeScript for all code files.
+- Follow the existing code style.
+- Use descriptive names for variables and functions.
+- Document complex functions and components.
+- Keep components small and focused.
 
 ## Commits
 
-- Utiliza mensajes de commit claros y descriptivos.
-- Sigue el formato "tipo: descripción" (ej. "feat: añadir función de búsqueda").
-- Tipos comunes: feat, fix, docs, style, refactor, test, chore.
+- Use clear and descriptive commit messages.
+- Follow the format "type: description" (e.g., "feat: add search feature").
+- Common types: feat, fix, docs, style, refactor, test, chore.
 
 ## Pull Requests
 
-- Proporciona una descripción clara de los cambios.
-- Referencia cualquier issue relacionado.
-- Incluye capturas de pantalla si es relevante.
-- Asegúrate de que el código pasa todas las pruebas.
+- Provide a clear description of the changes.
+- Reference any related issues.
+- Include screenshots if relevant.
+- Ensure the code passes all tests.
 
-## Desarrollo
+## Development
 
-1. Instala las dependencias:
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Inicia el servidor de desarrollo:
+2. Start the development server:
 ```bash
 npx expo start --go
 ```
 
-3. Para añadir paquetes compatibles con Expo, utiliza:
+3. To add Expo-compatible packages, use:
 ```bash
-npx expo install [nombre-del-paquete]
+npx expo install [package-name]
 ```
 
-## Informar Bugs
+## Reporting Bugs
 
-- Utiliza el sistema de issues de GitHub.
-- Proporciona pasos claros para reproducir el problema.
-- Incluye información sobre tu entorno (versión de Node, etc.)
-- Si es posible, incluye capturas de pantalla.
+- Use the GitHub issues system.
+- Provide clear steps to reproduce the problem.
+- Include information about your environment (Node version, etc.)
+- If possible, include screenshots.
 
-## Solicitar Características
+## Requesting Features
 
-- Revisa las issues existentes para evitar duplicados.
-- Explica claramente la característica deseada.
-- Describe el caso de uso y por qué la característica sería útil.
+- Check existing issues to avoid duplicates.
+- Clearly explain the desired feature.
+- Describe the use case and why the feature would be useful.
 
-## Licencia
+## License
 
-Al contribuir a este proyecto, aceptas que tus contribuciones estarán licenciadas bajo la misma licencia que el proyecto (MIT License). 
+By contributing to this project, you agree that your contributions will be licensed under the same license as the project (MIT License). 

@@ -1,0 +1,34 @@
+---
+description: Enforces consistent creation and usage of custom React hooks for reusable logic such as theming, platform detection, and feature toggles. Helps prevent repetition and encourages composition.
+globs: 
+alwaysApply: false
+---
+You are managing reusable logic via React hooks in a modular Expo project using TypeScript.
+
+Purpose of Hooks
+
+- Hooks abstract cross-cutting logic (e.g., theming, auth status, media queries) into isolated, testable, reusable functions.
+- Use hooks to avoid repeating the same logic across multiple components or screens.
+
+Structure and Location
+
+- All custom hooks should live inside `app/hooks/`.
+- Hook files should be named in camelCase, matching the exported function name (e.g., `useUserPreferences.ts`).
+- Hook names must begin with `use`.
+
+Hook Responsibilities
+
+- Keep hooks focused. A hook should do one job: handle dark mode, fetch user, track keyboard state, etc.
+- Extract logic from components if reused more than once or if it bloats the render body.
+- Hooks must not perform side effects without cleanup.
+
+Examples:
+
+- ✅ `useColorScheme`, `useKeyboardVisible`, `useThemeColor`
+- ❌ Avoid creating hooks for static values or one-off utilities — prefer constants or helpers for that.
+
+Types and Reusability
+
+- Hooks must be strongly typed using TypeScript.
+- Avoid internal state duplication — if logic is already in a store (Zustand), consider reading from it instead of duplicating it in a hook.
+

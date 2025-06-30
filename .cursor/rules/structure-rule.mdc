@@ -1,0 +1,112 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Boring Template Expo – Cursor Rule
+
+# Description: Enforces architecture, styling, API, and structure conventions for this Expo project.
+
+## 🔧 General Structure & Project Intent
+
+The project is a modern, scalable Expo-based React Native app. It uses:
+
+- **Expo Router** for file-based navigation.
+- **Supabase** for authentication and backend.
+- **Zustand** for state management.
+- **Formik + Yup** for form handling.
+- **React Native's StyleSheet** for UI styling.
+
+## 📁 Directory Structure
+
+Enforce the following folder structure:
+
+- `app/` – All app logic lives here.
+  - `components/` – Shared UI components. Use PascalCase filenames.
+  - `(public)/`, `(private)/`, `(auth)/` – Route-based folders for navigation.
+  - `hooks/` – Custom hooks (e.g., theming).
+  - `services/` – Supabase API/auth logic.
+  - `store/` – Zustand global stores.
+  - `constants/` – Shared constants and themes.
+
+Disallow creation of:
+
+- New folders outside of `app/` unless explicitly required (e.g., `__mocks__`, `scripts/`).
+- Adding or relying on `app-example/`. This will be deprecated.
+
+## 🧱 Component Architecture
+
+- All components must:
+
+  - Be functional and typed with TypeScript.
+  - Use **PascalCase** for component and file names.
+  - Be placed under `app/components/`, or subfolders of it.
+
+- All components must:
+  - Use `StyleSheet.create()` for styling.
+  - Not use `styled-components`, `NativeBase`, `Tailwind`, or inline styles for layout/styling.
+
+## 🧾 Form Handling
+
+- All forms must use:
+  - **Formik** for state handling.
+  - **Yup** for schema validation.
+- Avoid using React Hook Form or any other alternatives unless there's a strong reason.
+
+## 🔗 API and Services
+
+- Use only **Supabase** for backend integration.
+- All API logic should go in `app/services/`, split by concern if needed (e.g., `authService.ts`).
+- Do not use or install:
+  - `axios`
+  - `fetch` directly (unless via Supabase client)
+  - Any other third-party API clients
+
+## 🌐 State Management
+
+- Use **Zustand** for all global state.
+- Stores must live in `app/store/` and follow the pattern of `xyzStore.ts`.
+- Disallow use of:
+  - Redux
+  - MobX
+  - Recoil
+  - Context API for global state (local only when needed)
+
+## 🧹 Dependency and Package Rules
+
+- Do not install or suggest:
+  - `axios`
+  - `native-base`
+  - `styled-components`
+  - `tailwindcss`
+- Only allow package installation via `npm`.
+- Ensure any new dependency has a clearly defined use case and belongs to either:
+  - UI rendering
+  - Supabase integration
+  - State management (Zustand-only)
+  - Utility (e.g., date-fns, lodash if absolutely needed)
+
+## ✅ Testing
+
+- Testing setup uses **Jest + jest-expo**, but no tests are currently required.
+- Do not generate tests unless a future rule states otherwise.
+
+## 📐 Code Quality & Conventions
+
+- Enforce:
+  - TypeScript usage throughout.
+  - Functional components.
+  - Clear, descriptive variable and component names.
+- Use:
+  - `expo lint` for formatting.
+- Do not use:
+  - Prettier or other formatters not configured.
+
+## 🔒 Final Guardrails
+
+- Do not regenerate the README without permission — it is being restructured.
+- Only generate new files within the existing directory structure unless asked otherwise.
+- Do not reference the `app-example/` folder in any new code or suggestions.
+
+# End of Rule
+
