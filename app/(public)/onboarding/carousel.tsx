@@ -1,57 +1,56 @@
 import { OnboardingSlide } from '@/app/components/OnboardingSlide';
+import { OnboardingSvg1 } from '@/app/components/OnboardingSvg1';
+import { OnboardingSvg2 } from '@/app/components/OnboardingSvg2';
+import { OnboardingSvg3 } from '@/app/components/OnboardingSvg3';
+import { OnboardingSvg4 } from '@/app/components/OnboardingSvg4';
 import { Pagination } from '@/app/components/Pagination';
 import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedView } from '@/app/components/ThemedView';
 import { Strings } from '@/app/constants/Strings';
-import { useThemedAsset } from '@/app/hooks/useThemedAsset';
+import { useOnboardingStore } from '@/app/store/onboardingStore';
 import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { Animated, Dimensions, FlatList, StyleSheet, View } from 'react-native';
-
-// Placeholder para los logos hasta que el usuario los coloque
-const imageLight1 = require('@/assets/images/icon-light.png');
-const imageDark1 = require('@/assets/images/icon-dark.png');
-const imageLight2 = require('@/assets/images/icon-light.png');
-const imageDark2 = require('@/assets/images/icon-dark.png');
-const imageLight3 = require('@/assets/images/icon-light.png');
-const imageDark3 = require('@/assets/images/icon-dark.png');
 
 const { width } = Dimensions.get('window');
 
 export default function OnboardingCarouselScreen() {
   const router = useRouter();
+  const { markOnboardingCompleted } = useOnboardingStore();
   const [activeSlide, setActiveSlide] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   
-  // Imágenes con soporte para tema
-  const image1 = useThemedAsset(imageLight1, imageDark1);
-  const image2 = useThemedAsset(imageLight2, imageDark2);
-  const image3 = useThemedAsset(imageLight3, imageDark3);
-  
-  // Datos del slider con las imágenes cargadas según el tema
+  // Onboarding slides data with SVG components
   const slides = [
     {
       id: '1',
       title: Strings.onboarding.screens[0].title,
       subtitle: Strings.onboarding.screens[0].subtitle,
-      image: image1,
+      SvgComponent: OnboardingSvg1,
     },
     {
       id: '2',
       title: Strings.onboarding.screens[1].title,
       subtitle: Strings.onboarding.screens[1].subtitle,
-      image: image2,
+      SvgComponent: OnboardingSvg2,
     },
     {
       id: '3',
       title: Strings.onboarding.screens[2].title,
       subtitle: Strings.onboarding.screens[2].subtitle,
-      image: image3,
+      SvgComponent: OnboardingSvg3,
+    },
+    {
+      id: '4',
+      title: Strings.onboarding.screens[3].title,
+      subtitle: Strings.onboarding.screens[3].subtitle,
+      SvgComponent: OnboardingSvg4,
     },
   ];
   
-  const goToLogin = () => {
+  const completeOnboarding = async () => {
+    await markOnboardingCompleted();
     router.replace('/(public)/login');
   };
   
@@ -62,7 +61,7 @@ export default function OnboardingCarouselScreen() {
         animated: true,
       });
     } else {
-      goToLogin();
+      completeOnboarding();
     }
   };
   
@@ -79,7 +78,7 @@ export default function OnboardingCarouselScreen() {
           <OnboardingSlide
             title={item.title}
             subtitle={item.subtitle}
-            image={item.image}
+            SvgComponent={item.SvgComponent}
           />
         )}
         keyExtractor={(item) => item.id}
@@ -104,7 +103,7 @@ export default function OnboardingCarouselScreen() {
           <ThemedButton
             title={Strings.common.skip}
             type="text"
-            onPress={goToLogin}
+            onPress={completeOnboarding}
           />
           
           <ThemedButton

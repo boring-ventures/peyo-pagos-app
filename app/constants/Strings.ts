@@ -22,22 +22,26 @@ export const Strings = {
     success: 'Éxito',
   },
   welcome: {
-    title: '¡Bienvenido a la app!',
-    subtitle: 'Un template base para comenzar tu próximo proyecto móvil.',
+    title: '¡Bienvenido a Peyo Pagos!',
+    subtitle: 'Tu compañero financiero para un mejor manejo de tus finanzas.',
   },
   onboarding: {
     screens: [
       {
-        title: 'Personalizable y Modular',
-        subtitle: 'Utiliza y adapta componentes a tus necesidades específicas.',
+        title: 'Bienvenido a CashRush',
+        subtitle: 'Tu nueva forma de gestionar y administrar tu dinero de manera inteligente.',
       },
       {
-        title: 'Temas Claro y Oscuro',
-        subtitle: 'Disfruta de una experiencia visual adaptada a tus preferencias.',
+        title: 'Gestión Financiera Sin Esfuerzo',
+        subtitle: 'Controla tus gastos y optimiza tu presupuesto de forma sencilla y eficiente.',
       },
       {
-        title: 'Navegación Intuitiva',
-        subtitle: 'Flujos de usuario optimizados para mejorar la experiencia.',
+        title: 'Finanzas Impulsadas por Tecnología',
+        subtitle: 'Herramientas digitales avanzadas para tomar mejores decisiones financieras.',
+      },
+      {
+        title: 'Tu Compañero Financiero',
+        subtitle: 'Alcanza tus metas y celebra tus logros financieros con nuestra ayuda.',
       },
     ],
   },
