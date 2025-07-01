@@ -4,19 +4,14 @@ import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
 import { ThemeSelector } from '@/app/components/ThemeSelector';
 import { UserAvatar } from '@/app/components/UserAvatar';
-import { Colors } from '@/app/constants/Colors';
-import { useColorScheme } from '@/app/hooks/useColorScheme';
 import { useAuthStore } from '@/app/store/authStore';
-import { useOnboardingStore } from '@/app/store/onboardingStore';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 export default function ProfileScreen() {
-  const colorScheme = useColorScheme();
   const router = useRouter();
   const { user, profile, isAuthenticated } = useAuthStore();
-  const { resetOnboarding } = useOnboardingStore();
   const [isLoading, setIsLoading] = useState(false);
 
   // If not authenticated, ensure redirect happens (handled by _layout.tsx)
@@ -41,35 +36,6 @@ export default function ProfileScreen() {
   const handleEditProfile = () => {
     router.push('/(private)/edit-profile');
   };
-
-  const handleResetOnboarding = () => {
-    Alert.alert(
-      'Reset Onboarding',
-      'This will reset the onboarding status. You will see the onboarding screens again next time you login.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            await resetOnboarding();
-            Alert.alert('Success', 'Onboarding has been reset.');
-          },
-        },
-      ],
-    );
-  };
-
-  if (!profile) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText>Cargando perfil...</ThemedText>
-      </ThemedView>
-    );
-  }
 
   return (
     <ThemedView style={styles.container}>
@@ -101,16 +67,11 @@ export default function ProfileScreen() {
             style={styles.actionButton}
           />
           <ThemedButton
-            title="Reset Onboarding (Test)"
-            type="secondary"
-            onPress={handleResetOnboarding}
-            style={styles.actionButton}
-          />
-          <ThemedButton
             title="Cerrar Sesión"
-            type="secondary"
             onPress={handleLogout}
-            style={[styles.actionButton, { backgroundColor: Colors[colorScheme ?? 'light'].error }]}
+            loading={isLoading}
+            type="primary"
+            style={styles.actionButton}
           />
         </View>
 

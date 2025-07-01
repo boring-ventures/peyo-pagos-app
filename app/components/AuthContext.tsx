@@ -1,7 +1,7 @@
 import { ImageFile } from '@/app/components/ImagePickerModal';
 import { LoadingScreen } from '@/app/components/LoadingScreen';
 import { useAuthStore } from '@/app/store/authStore';
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -32,16 +32,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     register,
   } = useAuthStore();
 
-  useEffect(() => {
-    console.log('🛡️ AuthContext: Auth state changed:', { isAuthenticated, isLoading });
-  }, [isAuthenticated, isLoading]);
-
   if (isLoading) {
-    console.log('⏳ AuthContext: Still loading, showing LoadingScreen');
     return <LoadingScreen />;
   }
-
-  console.log('🛡️ AuthContext: Rendering children with auth state:', { isAuthenticated });
 
   return (
     <AuthContext.Provider

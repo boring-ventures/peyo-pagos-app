@@ -6,8 +6,7 @@ import { Dimensions, Image, ImageSourcePropType, StyleSheet, View } from 'react-
 type OnboardingSlideProps = {
   title: string;
   subtitle: string;
-  image?: ImageSourcePropType;
-  SvgComponent?: React.FC<{ width?: number; height?: number }>;
+  image: ImageSourcePropType;
 };
 
 const { width, height } = Dimensions.get('window');
@@ -16,16 +15,11 @@ export const OnboardingSlide: React.FC<OnboardingSlideProps> = ({
   title,
   subtitle,
   image,
-  SvgComponent,
 }) => {
   return (
     <ThemedView style={styles.slide}>
       <View style={styles.imageContainer}>
-        {SvgComponent ? (
-          <SvgComponent width={width * 0.7} height={width * 0.7} />
-        ) : image ? (
-          <Image source={image} style={styles.image} resizeMode="contain" />
-        ) : null}
+        <Image source={image} style={styles.image} resizeMode="contain" />
       </View>
       
       <View style={styles.textContainer}>
