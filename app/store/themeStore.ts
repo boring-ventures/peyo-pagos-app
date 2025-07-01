@@ -33,4 +33,6 @@ export const useThemeStore = create<ThemeState>((set) => ({
       console.error('Error loading theme:', error);
     }
   },
-})); 
+}));
+
+export default useThemeStore; 

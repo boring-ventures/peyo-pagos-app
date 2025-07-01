@@ -67,4 +67,6 @@ const styles = StyleSheet.create({
   actionContainer: {
     marginLeft: 10,
   },
-}); 
+});
+
+export default ProfileInfoRow; 

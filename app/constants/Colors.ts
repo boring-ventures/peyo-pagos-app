@@ -43,4 +43,6 @@ export const Colors = {
     warning: '#FFD60A',
     info: '#0A84FF',
   },
-}; 
+};
+
+export default Colors; 

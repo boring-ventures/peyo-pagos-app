@@ -168,4 +168,6 @@ const styles = StyleSheet.create({
   cancelOption: {
     marginTop: 10,
   },
-}); 
+});
+
+export default ImagePickerModal; 

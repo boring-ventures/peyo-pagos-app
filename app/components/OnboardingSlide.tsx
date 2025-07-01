@@ -65,4 +65,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 300,
   },
-}); 
+});
+
+export default OnboardingSlide; 

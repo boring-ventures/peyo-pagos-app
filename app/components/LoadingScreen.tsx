@@ -85,4 +85,6 @@ const styles = StyleSheet.create({
   textContainer: {
     alignItems: 'center',
   },
-}); 
+});
+
+export default LoadingScreen; 

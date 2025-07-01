@@ -29,3 +29,5 @@ export function useColorScheme() {
   // Otherwise, return the explicitly set theme
   return theme;
 }
+
+export default useColorScheme;

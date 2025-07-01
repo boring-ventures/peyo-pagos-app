@@ -161,4 +161,6 @@ const textSizeStyles = {
   large: {
     fontSize: 18,
   },
-}; 
+};
+
+export default ThemedButton; 

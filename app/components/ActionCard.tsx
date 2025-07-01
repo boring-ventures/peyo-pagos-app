@@ -74,4 +74,6 @@ const styles = StyleSheet.create({
   arrow: {
     marginLeft: 8,
   },
-}); 
+});
+
+export default ActionCard; 

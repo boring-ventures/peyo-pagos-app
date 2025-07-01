@@ -87,4 +87,6 @@ const styles = StyleSheet.create({
   initials: {
     fontWeight: 'bold',
   },
-}); 
+});
+
+export default UserAvatar; 

@@ -44,4 +44,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textDecorationLine: 'underline',
   },
-}); 
+});
+
+export default TermsText; 

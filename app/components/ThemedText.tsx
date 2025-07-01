@@ -28,4 +28,6 @@ export function ThemedText(props: ThemedTextProps) {
   };
 
   return <Text style={[{ color }, getFontStyle(), style]} {...otherProps} />;
-} 
+}
+
+export default ThemedText; 

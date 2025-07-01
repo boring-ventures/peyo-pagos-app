@@ -336,4 +336,6 @@ export const authService = {
       return { error: err as AuthError };
     }
   },
-}; 
+};
+
+export default authService; 

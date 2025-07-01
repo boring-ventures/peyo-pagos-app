@@ -13,4 +13,6 @@ export function useThemedAsset(
 ): ImageSourcePropType {
   const colorScheme = useColorScheme();
   return colorScheme === 'dark' ? darkAsset : lightAsset;
-} 
+}
+
+export default useThemedAsset; 

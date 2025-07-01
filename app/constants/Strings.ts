@@ -79,4 +79,6 @@ export const Strings = {
       registerFailed: 'Error al registrar usuario',
     },
   },
-}; 
+};
+
+export default Strings; 

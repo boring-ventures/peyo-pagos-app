@@ -114,4 +114,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 12,
   },
-}); 
+});
+
+export default ThemeSelector; 
