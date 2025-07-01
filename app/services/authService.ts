@@ -82,7 +82,7 @@ export const authService = {
         const arrayBuffer = await (await fetch(file.uri)).arrayBuffer();
         const fileData = new Uint8Array(arrayBuffer);
 
-        const { error, data } = await supabase.storage
+        const { error } = await supabase.storage
           .from(bucket)
           .upload(filePath, fileData, {
             contentType,

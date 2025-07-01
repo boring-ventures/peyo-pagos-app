@@ -10,6 +10,7 @@ export type ThemedTextProps = TextProps & {
 export function ThemedText(props: ThemedTextProps) {
   const { style, light, dark, type = 'default', ...otherProps } = props;
   const color = useThemeColor({ light, dark }, 'text');
+  const tintColor = useThemeColor({}, 'tint');
 
   const getFontStyle = () => {
     switch (type) {
@@ -18,7 +19,7 @@ export function ThemedText(props: ThemedTextProps) {
       case 'subtitle':
         return { fontSize: 16, fontWeight: '600' as const };
       case 'link':
-        return { color: useThemeColor({}, 'tint'), textDecorationLine: 'underline' as const };
+        return { color: tintColor, textDecorationLine: 'underline' as const };
       case 'defaultSemiBold':
         return { fontWeight: '600' as const };
       default:

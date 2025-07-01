@@ -36,6 +36,7 @@ export function ThemedButton(props: ThemedButtonProps) {
   const backgroundColor = useThemeColor({ light, dark }, type === 'primary' ? 'tint' : 'background');
   const textColor = useThemeColor({}, type === 'primary' ? 'background' : 'tint');
   const borderColor = useThemeColor({}, 'tint');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   
   const getButtonStyle = () => {
     let baseStyle = {
@@ -53,7 +54,7 @@ export function ThemedButton(props: ThemedButtonProps) {
       case 'secondary':
         return {
           ...baseStyle,
-          backgroundColor: useThemeColor({}, 'backgroundSecondary'),
+          backgroundColor: backgroundSecondary,
           opacity: disabled ? 0.6 : 1,
         };
       case 'outline':
