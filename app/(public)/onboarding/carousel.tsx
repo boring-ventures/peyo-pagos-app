@@ -1,8 +1,13 @@
-import { OnboardingScreen } from '@/app/components/OnboardingScreen';
+import { OnboardingContent } from '@/app/components/OnboardingContent';
+import { OnboardingProgress } from '@/app/components/OnboardingProgress';
+import { ThemedButton } from '@/app/components/ThemedButton';
+import { ThemedText } from '@/app/components/ThemedText';
+import { ThemedView } from '@/app/components/ThemedView';
 import { Strings } from '@/app/constants/Strings';
+import { useThemeColor } from '@/app/hooks/useThemeColor';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, SafeAreaView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { PanGestureHandler } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -19,6 +24,7 @@ export default function OnboardingCarouselScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const translateX = useSharedValue(0);
+  const textSecondaryColor = useThemeColor({}, 'textSecondary');
 
   const screens = [
     {
@@ -80,11 +86,13 @@ export default function OnboardingCarouselScreen() {
       const shouldMoveToPrev = event.translationX > width / 3 && currentIndex > 0;
 
       if (shouldMoveToNext) {
-        runOnJS(setCurrentIndex)(currentIndex + 1);
-        translateX.value = withSpring(-(currentIndex + 1) * width);
+        const nextIndex = currentIndex + 1;
+        runOnJS(setCurrentIndex)(nextIndex);
+        translateX.value = withSpring(-nextIndex * width);
       } else if (shouldMoveToPrev) {
-        runOnJS(setCurrentIndex)(currentIndex - 1);
-        translateX.value = withSpring(-(currentIndex - 1) * width);
+        const prevIndex = currentIndex - 1;
+        runOnJS(setCurrentIndex)(prevIndex);
+        translateX.value = withSpring(-prevIndex * width);
       } else {
         translateX.value = withSpring(-currentIndex * width);
       }
@@ -97,27 +105,58 @@ export default function OnboardingCarouselScreen() {
     };
   });
 
+  const currentScreen = screens[currentIndex];
+  const showSkip = currentIndex < TOTAL_SCREENS - 1;
+
   return (
-    <PanGestureHandler onGestureEvent={gestureHandler}>
-      <Animated.View style={styles.container}>
-        <Animated.View style={[styles.screensContainer, animatedStyle]}>
-          {screens.map((screen, index) => (
-            <OnboardingScreen
-              key={index}
-              title={screen.title}
-              subtitle={screen.subtitle}
-              buttonText={screen.buttonText}
-              illustrationType={screen.illustrationType}
-              currentStep={index}
-              totalSteps={TOTAL_SCREENS}
-              onNext={handleNext}
-              onSkip={handleSkip}
-              showSkip={index < TOTAL_SCREENS - 1} // Don't show skip on last screen
-            />
-          ))}
-        </Animated.View>
-      </Animated.View>
-    </PanGestureHandler>
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        {/* Fixed Header with Skip Button */}
+        {showSkip && (
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
+              <ThemedText style={[styles.skipText, { color: textSecondaryColor }]}>
+                Skip
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Animated Content Area */}
+        <View style={styles.contentArea}>
+          <PanGestureHandler onGestureEvent={gestureHandler}>
+            <Animated.View style={[styles.contentContainer, animatedStyle]}>
+              {screens.map((screen, index) => (
+                <OnboardingContent
+                  key={index}
+                  title={screen.title}
+                  subtitle={screen.subtitle}
+                  illustrationType={screen.illustrationType}
+                />
+              ))}
+            </Animated.View>
+          </PanGestureHandler>
+        </View>
+
+        {/* Fixed Bottom Section */}
+        <View style={styles.bottomSection}>
+          {/* Progress Indicator */}
+          <OnboardingProgress
+            currentStep={currentIndex}
+            totalSteps={TOTAL_SCREENS}
+            style={styles.progress}
+          />
+
+          {/* Action Button */}
+          <ThemedButton
+            title={currentScreen.buttonText}
+            onPress={handleNext}
+            size="large"
+            style={styles.actionButton}
+          />
+        </View>
+      </SafeAreaView>
+    </ThemedView>
   );
 }
 
@@ -125,9 +164,44 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  screensContainer: {
+  safeArea: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: 16,
+    paddingBottom: 8,
+    minHeight: 48,
+  },
+  skipButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  skipText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  contentArea: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  contentContainer: {
     flex: 1,
     flexDirection: 'row',
     width: width * TOTAL_SCREENS,
+  },
+  bottomSection: {
+    paddingBottom: 32,
+    minHeight: 120,
+    justifyContent: 'flex-end',
+  },
+  progress: {
+    marginBottom: 32,
+  },
+  actionButton: {
+    width: '100%',
+    marginHorizontal: 0,
   },
 }); 
