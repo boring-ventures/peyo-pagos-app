@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 
 export default function Index() {
-  // Redirigir a la pantalla de carga que verificará la autenticación
-  return <Redirect href={'/(auth)/loading' as any} />;
+  // Redirigir al loading de auth que manejará el flujo correcto
+  return <Redirect href={'/(auth)' as any} />;
 }

@@ -42,6 +42,10 @@ export default function RegisterScreen() {
   const { register } = useAuth();
   const logo = useThemedAsset(logoLight, logoDark);
   const iconColor = useThemeColor({}, 'icon');
+  const borderColor = useThemeColor({}, 'border');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
+  const tintColor = useThemeColor({}, 'tint');
+  const backgroundColor = useThemeColor({}, 'background');
   const [isLoading, setIsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [avatar, setAvatar] = useState<ImageFile | null>(null);
@@ -115,19 +119,20 @@ export default function RegisterScreen() {
           {avatar ? (
             <Image 
               source={{ uri: avatar.uri }} 
-              style={styles.avatar} 
+              style={[styles.avatar, { borderColor }]} 
               resizeMode="cover"
             />
           ) : (
-            <View style={[styles.avatar, styles.placeholderAvatar]}>
-              <Ionicons name="person" size={50} color="#ccc" />
+            <View style={[styles.avatar, styles.placeholderAvatar, { borderColor, backgroundColor: backgroundSecondary }]}>
+              <Ionicons name="person" size={50} color={iconColor} />
             </View>
           )}
           <View style={[
             styles.avatarEditIcon,
+            { backgroundColor: tintColor, borderColor: backgroundColor },
             isLoading ? { opacity: 0.7 } : undefined
           ]}>
-            <Ionicons name="camera" size={16} color="white" />
+            <Ionicons name="camera" size={16} color={backgroundColor} />
           </View>
         </TouchableOpacity>
         
@@ -266,25 +271,21 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 2,
-    borderColor: '#ccc',
   },
   placeholderAvatar: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
   },
   avatarEditIcon: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#2196F3',
     borderRadius: 15,
     width: 30,
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'white',
   },
   formContainer: {
     width: '100%',

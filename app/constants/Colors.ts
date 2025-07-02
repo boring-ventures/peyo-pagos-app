@@ -1,47 +1,65 @@
 /**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Updated with Peyo's brand identity colors.
  */
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Peyo Brand Colors
+const brandColors = {
+  primary: '#4ECDC4',        // Primary Turquoise from logo
+  primaryDark: '#1A2B42',    // Dark navy from logo text
+  primaryLight: '#7FDBDA',   // Lighter variant of turquoise
+  primaryContrast: '#FFFFFF', // White for contrast
+};
+
+const tintColorLight = brandColors.primary;
+const tintColorDark = brandColors.primaryLight;
 
 export const Colors = {
+  // Brand color constants for consistent usage
+  brand: {
+    primary: '#4ECDC4',
+    primaryDark: '#1A2B42',
+    primaryLight: '#7FDBDA',
+    primaryContrast: '#FFFFFF',
+    // Additional brand color variants
+    primaryHover: '#3DB5B0',    // Darker turquoise for hover states
+    primaryDisabled: '#A8E6E2',  // Lighter turquoise for disabled states
+  },
   light: {
-    text: '#11181C',
-    textSecondary: '#687076',
-    background: '#fff',
-    backgroundSecondary: '#F5F5F5',
-    backgroundTertiary: '#EAEAEA',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-    border: '#E0E0E0',
-    card: '#FFFFFF',
-    notification: '#FF3B30',
-    success: '#4CD964',
-    error: '#FF3B30',
-    warning: '#FFCC00',
-    info: '#0A84FF',
+    text: '#1A2B42',              // Use brand dark for main text
+    textSecondary: '#5A6B7F',     // Softer variant of brand dark
+    background: '#FFFFFF',         // Pure white background
+    backgroundSecondary: '#F8FAFA', // Very light gray with hint of turquoise
+    backgroundTertiary: '#F0F6F6',  // Slightly more turquoise tint
+    tint: tintColorLight,          // Brand primary turquoise
+    icon: '#5A6B7F',              // Softer icon color
+    tabIconDefault: '#8A9BA8',     // Muted tab icons
+    tabIconSelected: tintColorLight, // Active tab uses brand color
+    border: '#E1E8EA',            // Light border with subtle turquoise hint
+    card: '#FFFFFF',              // Pure white cards
+    notification: '#FF4757',       // Bright red for notifications
+    success: '#2ED573',           // Green that complements turquoise
+    error: '#FF4757',             // Consistent error red
+    warning: '#FFA726',           // Orange warning
+    info: '#4ECDC4',              // Use brand primary for info
   },
   dark: {
-    text: '#ECEDEE',
-    textSecondary: '#9BA1A6',
-    background: '#151718',
-    backgroundSecondary: '#1C1E1F',
-    backgroundTertiary: '#2A2D2E',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-    border: '#2A2D2E',
-    card: '#1C1E1F',
-    notification: '#FF453A',
-    success: '#32D74B',
-    error: '#FF453A',
-    warning: '#FFD60A',
-    info: '#0A84FF',
+    text: '#FFFFFF',              // Pure white text
+    textSecondary: '#B8C5D1',     // Light gray text
+    background: '#1A2B42',        // Use brand dark as main background
+    backgroundSecondary: '#243447', // Slightly lighter navy
+    backgroundTertiary: '#2E3F54', // Even lighter navy variant
+    tint: tintColorDark,          // Lighter turquoise for dark mode
+    icon: '#B8C5D1',             // Light gray icons
+    tabIconDefault: '#8A9BA8',    // Muted tab icons
+    tabIconSelected: tintColorDark, // Active tab uses light turquoise
+    border: '#354A61',           // Dark border
+    card: '#243447',             // Dark card background
+    notification: '#FF6B7A',      // Softer red for dark mode
+    success: '#4CD471',          // Brighter green for dark mode
+    error: '#FF6B7A',            // Softer error red for dark mode
+    warning: '#FFBD4A',          // Brighter orange for dark mode
+    info: '#7FDBDA',             // Light turquoise for info in dark mode
   },
 };
 

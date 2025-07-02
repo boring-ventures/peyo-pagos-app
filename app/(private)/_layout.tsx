@@ -8,10 +8,11 @@ export default function PrivateLayout() {
   const tabIconColor = useThemeColor({}, "tabIconDefault");
   const tabIconSelectedColor = useThemeColor({}, "tabIconSelected");
   const backgroundColor = useThemeColor({}, "background");
+  const borderTopColor = useThemeColor({}, "border");
 
-  // Si no está autenticado, redirigir a la ruta pública
+  // Si no está autenticado, redirigir al onboarding
   if (!isAuthenticated) {
-    return <Redirect href="/(public)/login" />;
+    return <Redirect href="/(public)/onboarding/welcome" />;
   }
 
   return (
@@ -19,15 +20,40 @@ export default function PrivateLayout() {
       screenOptions={{
         tabBarActiveTintColor: tabIconSelectedColor,
         tabBarInactiveTintColor: tabIconColor,
-        tabBarStyle: { backgroundColor },
+        tabBarStyle: { 
+          backgroundColor,
+          borderTopColor,
+          borderTopWidth: 0.5,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          marginTop: 4,
+        },
+        headerStyle: {
+          backgroundColor,
+          borderBottomColor: borderTopColor,
+          borderBottomWidth: 0.5,
+        },
+        headerTintColor: tabIconSelectedColor,
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
       }}
     >
       <Tabs.Screen
         name="home"
         options={{
           title: "Inicio",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? "home" : "home-outline"} 
+              size={size} 
+              color={color} 
+            />
           ),
         }}
       />
@@ -35,8 +61,12 @@ export default function PrivateLayout() {
         name="profile"
         options={{
           title: "Perfil",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? "person" : "person-outline"} 
+              size={size} 
+              color={color} 
+            />
           ),
         }}
       />
@@ -47,6 +77,15 @@ export default function PrivateLayout() {
           headerTitle: "Editar Perfil",
           href: null,
           tabBarStyle: { display: "none" },
+          headerStyle: {
+            backgroundColor,
+            borderBottomColor: borderTopColor,
+            borderBottomWidth: 0.5,
+          },
+          headerTintColor: tabIconSelectedColor,
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
         }}
       />
     </Tabs>

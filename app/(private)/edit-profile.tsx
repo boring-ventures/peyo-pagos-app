@@ -31,6 +31,9 @@ export default function EditProfileScreen() {
   const [avatar, setAvatar] = useState<ImageFile | null>(null);
   const [avatarChanged, setAvatarChanged] = useState(false);
   const iconColor = useThemeColor({}, 'icon');
+  const borderColor = useThemeColor({}, 'border');
+  const tintColor = useThemeColor({}, 'tint');
+  const backgroundColor = useThemeColor({}, 'background');
 
   // Redirect if user or profile is not available
   useEffect(() => {
@@ -137,7 +140,7 @@ export default function EditProfileScreen() {
                   height: 120,
                   borderRadius: 60,
                   borderWidth: 2,
-                  borderColor: '#ccc',
+                  borderColor: borderColor,
                 }}
                 resizeMode="cover"
               />
@@ -151,9 +154,10 @@ export default function EditProfileScreen() {
             )}
             <View style={[
               styles.avatarEditIcon,
+              { backgroundColor: tintColor, borderColor: backgroundColor },
               isLoading ? { opacity: 0.7 } : undefined
             ]}>
-              <Ionicons name="camera" size={18} color="white" />
+              <Ionicons name="camera" size={18} color={backgroundColor} />
             </View>
           </TouchableOpacity>
           <ThemedText style={styles.avatarHelperText}>
@@ -248,14 +252,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#2196F3',
     borderRadius: 15,
     width: 30,
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'white',
   },
   avatarHelperText: {
     marginTop: 10,
