@@ -332,10 +332,77 @@ export const authService = {
    */
   resetPassword: async (email: string): Promise<{ error: AuthError | null }> => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'peyo://reset-password', // Deep link for mobile app
+      });
       return { error };
     } catch (err) {
       console.error('Error resetting password:', err);
+      return { error: err as AuthError };
+    }
+  },
+
+  /**
+   * Send OTP verification code
+   */
+  sendOTP: async (email: string, type: 'signup' | 'recovery' = 'signup'): Promise<{ error: AuthError | null }> => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: type === 'signup',
+        },
+      });
+      return { error };
+    } catch (err) {
+      console.error('Error sending OTP:', err);
+      return { error: err as AuthError };
+    }
+  },
+
+  /**
+   * Verify OTP code
+   */
+  verifyOTP: async (
+    email: string, 
+    token: string, 
+    type: 'signup' | 'recovery' = 'signup'
+  ): Promise<AuthResponse> => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type,
+      });
+
+      if (data.session) {
+        // Save session to AsyncStorage
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(data.session));
+      }
+
+      return {
+        user: data?.user || null,
+        session: data?.session || null,
+        error,
+      };
+    } catch (err) {
+      console.error('Error verifying OTP:', err);
+      return {
+        user: null,
+        session: null,
+        error: err as AuthError,
+      };
+    }
+  },
+
+  /**
+   * Resend OTP code
+   */
+  resendOTP: async (email: string, type: 'signup' | 'recovery' = 'signup'): Promise<{ error: AuthError | null }> => {
+    try {
+      return await authService.sendOTP(email, type);
+    } catch (err) {
+      console.error('Error resending OTP:', err);
       return { error: err as AuthError };
     }
   },

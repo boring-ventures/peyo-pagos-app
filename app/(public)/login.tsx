@@ -51,8 +51,7 @@ export default function LoginScreen() {
   };
 
   const handleForgotPassword = () => {
-    // TODO: Implement forgot password functionality
-    Alert.alert('Forgot Password', 'Functionality coming soon.');
+    router.push('/(public)/forgot-password' as any);
   };
 
   const handleGoogleLogin = () => {

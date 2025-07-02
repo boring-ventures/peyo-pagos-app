@@ -32,14 +32,9 @@ const RegisterSchema = Yup.object().shape({
   phone: Yup.string()
     .matches(phoneRegex, Strings.auth.validation.phoneInvalid)
     .required(Strings.auth.validation.phoneRequired),
-  firstName: Yup.string().required(Strings.auth.validation.firstNameRequired),
-  lastName: Yup.string().required(Strings.auth.validation.lastNameRequired),
   password: Yup.string()
     .min(6, Strings.auth.validation.passwordMin)
     .required(Strings.auth.validation.passwordRequired),
-  confirmPassword: Yup.string()
-    .required(Strings.auth.validation.confirmPasswordRequired)
-    .oneOf([Yup.ref("password")], Strings.auth.validation.passwordsNoMatch),
   acceptTerms: Yup.boolean()
     .required(Strings.auth.validation.termsRequired)
     .oneOf([true], Strings.auth.validation.termsRequired),
@@ -53,35 +48,27 @@ export default function RegisterScreen() {
   const tintColor = useThemeColor({}, "tint");
   const textSecondaryColor = useThemeColor({}, "textSecondary");
   const borderColor = useThemeColor({}, "border");
+  const errorColor = useThemeColor({}, "error");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (values: {
     email: string;
     phone: string;
-    firstName: string;
-    lastName: string;
     password: string;
-    confirmPassword: string;
     acceptTerms: boolean;
   }) => {
     setIsLoading(true);
 
     try {
-      const success = await register(
-        values.email,
-        values.password,
-        {
-          first_name: values.firstName,
-          last_name: values.lastName,
-          email: values.email,
-          phone: values.phone,
-        },
-        null // No avatar for now
-      );
-
-      if (!success) {
-        Alert.alert(Strings.common.error, Strings.auth.errors.registerFailed);
-      }
+      // TODO: Send OTP to user's email here first
+      // await authService.sendOTP(values.email, 'signup');
+      
+      // Navigate to OTP verification with email parameter
+      router.push({
+        pathname: "/(public)/otp-verification",
+        params: { email: values.email }
+      } as any);
+      
     } catch (error) {
       console.error("Register error:", error);
       Alert.alert(Strings.common.error, Strings.auth.errors.registerFailed);
@@ -146,10 +133,7 @@ export default function RegisterScreen() {
             initialValues={{
               email: "",
               phone: "",
-              firstName: "",
-              lastName: "",
               password: "",
-              confirmPassword: "",
               acceptTerms: false,
             }}
             validationSchema={RegisterSchema}
@@ -255,7 +239,7 @@ export default function RegisterScreen() {
                     <Text
                       style={[
                         styles.errorText,
-                        { color: useThemeColor({}, "error") },
+                        { color: errorColor },
                       ]}
                     >
                       {formikProps.errors.acceptTerms.toString()}
