@@ -47,12 +47,8 @@ export default function OnboardingCarouselScreen() {
     },
   ];
 
-  const goToLogin = () => {
-    router.replace('/(public)/login' as any);
-  };
-
-  const goToRegister = () => {
-    router.replace('/(public)/register' as any);
+  const goToGetStarted = () => {
+    router.push('/(public)/get-started' as any);
   };
 
   const handleNext = () => {
@@ -62,13 +58,13 @@ export default function OnboardingCarouselScreen() {
       setCurrentIndex(nextIndex);
       translateX.value = withSpring(-nextIndex * width);
     } else {
-      // Last screen - go to register
-      goToRegister();
+      // Last screen - go to get started auth screen
+      goToGetStarted();
     }
   };
 
   const handleSkip = () => {
-    goToLogin();
+    goToGetStarted();
   };
 
   // Gesture handler for swipe navigation

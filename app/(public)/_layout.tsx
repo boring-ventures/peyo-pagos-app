@@ -12,6 +12,13 @@ export default function PublicLayout() {
   return (
     <Stack initialRouteName="onboarding/welcome">
       <Stack.Screen
+        name="get-started"
+        options={{
+          headerShown: false,
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
         name="login"
         options={{
           headerShown: false,
@@ -20,7 +27,7 @@ export default function PublicLayout() {
       <Stack.Screen
         name="register"
         options={{
-          headerTitle: "Registro",
+          headerTitle: "Sign Up",
         }}
       />
       <Stack.Screen

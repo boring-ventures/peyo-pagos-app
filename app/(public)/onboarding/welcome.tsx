@@ -15,7 +15,7 @@ export default function WelcomeScreen() {
   };
 
   const handleSkip = () => {
-    router.push('/(public)/login' as any);
+    router.push('/(public)/get-started' as any);
   };
 
   return (
@@ -25,7 +25,7 @@ export default function WelcomeScreen() {
         <View style={styles.content}>
           {/* Logo/Illustration */}
           <View style={styles.logoContainer}>
-            <OnboardingIllustration type="welcome" size={250} />
+            <OnboardingIllustration type="welcome" size={200} />
           </View>
           
           {/* Text Content */}
@@ -50,7 +50,7 @@ export default function WelcomeScreen() {
           />
           
           <ThemedButton
-            title="Skip to Login"
+            title="Skip to Auth"
             type="text"
             onPress={handleSkip}
             style={styles.secondaryButton}
@@ -73,10 +73,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 40,
+    paddingTop: 60,
   },
   logoContainer: {
-    marginBottom: 10,
+    marginBottom: 40,
   },
   textContainer: {
     alignItems: 'center',
