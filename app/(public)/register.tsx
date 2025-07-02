@@ -1,64 +1,71 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Formik } from 'formik';
-import React, { useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import * as Yup from 'yup';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { Formik } from "formik";
+import React, { useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import * as Yup from "yup";
 
-import { useAuth } from '@/app/components/AuthContext';
-import { FormField } from '@/app/components/FormField';
-import { ImageFile, ImagePickerModal } from '@/app/components/ImagePickerModal';
-import { TermsText } from '@/app/components/TermsText';
-import { ThemedButton } from '@/app/components/ThemedButton';
-import { ThemedText } from '@/app/components/ThemedText';
-import { ThemedView } from '@/app/components/ThemedView';
-import { Strings } from '@/app/constants/Strings';
-import { useThemeColor } from '@/app/hooks/useThemeColor';
-import { useThemedAsset } from '@/app/hooks/useThemedAsset';
+import { useAuth } from "@/app/components/AuthContext";
+import { FormField } from "@/app/components/FormField";
+import { SocialAuthButton } from "@/app/components/SocialAuthButton";
+import { ThemedButton } from "@/app/components/ThemedButton";
+import { ThemedText } from "@/app/components/ThemedText";
+import { ThemedView } from "@/app/components/ThemedView";
+import { Strings } from "@/app/constants/Strings";
+import { useThemeColor } from "@/app/hooks/useThemeColor";
 
-// Placeholder para los logos hasta que el usuario los coloque
-const logoLight = require('@/assets/images/icon-light.png');
-const logoDark = require('@/assets/images/icon-dark.png');
+// Phone number validation regex (international format)
+const phoneRegex = /^[+]?[1-9]\d{1,14}$/;
 
-// Esquema de validación con Yup
+// Validation schema with Yup
 const RegisterSchema = Yup.object().shape({
   email: Yup.string()
     .email(Strings.auth.validation.emailInvalid)
     .required(Strings.auth.validation.emailRequired),
-  firstName: Yup.string()
-    .required(Strings.auth.validation.firstNameRequired),
-  lastName: Yup.string()
-    .required(Strings.auth.validation.lastNameRequired),
+  phone: Yup.string()
+    .matches(phoneRegex, Strings.auth.validation.phoneInvalid)
+    .required(Strings.auth.validation.phoneRequired),
+  firstName: Yup.string().required(Strings.auth.validation.firstNameRequired),
+  lastName: Yup.string().required(Strings.auth.validation.lastNameRequired),
   password: Yup.string()
     .min(6, Strings.auth.validation.passwordMin)
     .required(Strings.auth.validation.passwordRequired),
   confirmPassword: Yup.string()
     .required(Strings.auth.validation.confirmPasswordRequired)
-    .oneOf([Yup.ref('password')], Strings.auth.validation.passwordsNoMatch),
+    .oneOf([Yup.ref("password")], Strings.auth.validation.passwordsNoMatch),
+  acceptTerms: Yup.boolean()
+    .required(Strings.auth.validation.termsRequired)
+    .oneOf([true], Strings.auth.validation.termsRequired),
 });
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register } = useAuth();
-  const logo = useThemedAsset(logoLight, logoDark);
-  const iconColor = useThemeColor({}, 'icon');
-  const borderColor = useThemeColor({}, 'border');
-  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
-  const tintColor = useThemeColor({}, 'tint');
-  const backgroundColor = useThemeColor({}, 'background');
+  const iconColor = useThemeColor({}, "icon");
+  const backgroundColor = useThemeColor({}, "background");
+  const tintColor = useThemeColor({}, "tint");
+  const textSecondaryColor = useThemeColor({}, "textSecondary");
+  const borderColor = useThemeColor({}, "border");
   const [isLoading, setIsLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [avatar, setAvatar] = useState<ImageFile | null>(null);
 
   const handleRegister = async (values: {
     email: string;
+    phone: string;
     firstName: string;
     lastName: string;
     password: string;
     confirmPassword: string;
+    acceptTerms: boolean;
   }) => {
     setIsLoading(true);
-    
+
     try {
       const success = await register(
         values.email,
@@ -67,175 +74,229 @@ export default function RegisterScreen() {
           first_name: values.firstName,
           last_name: values.lastName,
           email: values.email,
+          phone: values.phone,
         },
-        avatar
+        null // No avatar for now
       );
-      
+
       if (!success) {
         Alert.alert(Strings.common.error, Strings.auth.errors.registerFailed);
       }
     } catch (error) {
-      console.error('Register error:', error);
+      console.error("Register error:", error);
       Alert.alert(Strings.common.error, Strings.auth.errors.registerFailed);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleGoogleSignup = () => {
+    // TODO: Implement Google OAuth
+    Alert.alert("Google Signup", "Google authentication coming soon.");
+  };
+
   const handleLogin = () => {
-    router.push('/(public)/login' as any);
+    router.push("/(public)/login" as any);
   };
 
-  const handleOpenImagePicker = () => {
-    setModalVisible(true);
+  const handleTermsPress = () => {
+    Alert.alert(
+      "Terms & Conditions",
+      "Terms & Conditions content will be displayed here."
+    );
   };
 
-  const handleImageSelected = (image: ImageFile) => {
-    setAvatar(image);
+  const handlePrivacyPress = () => {
+    Alert.alert(
+      "Privacy Policy",
+      "Privacy Policy content will be displayed here."
+    );
+  };
+
+  const handleBack = () => {
+    router.back();
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView 
+    <ThemedView style={[styles.container, { backgroundColor: "#1A2B42" }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.logoContainer}>
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
-        </View>
-        
-        <ThemedText type="title" style={styles.title}>
-          {Strings.auth.register.title}
-        </ThemedText>
-
-        {/* Avatar selector */}
-        <TouchableOpacity 
-          style={styles.avatarContainer} 
-          onPress={handleOpenImagePicker}
-          activeOpacity={0.8}
-          disabled={isLoading}
-        >
-          {avatar ? (
-            <Image 
-              source={{ uri: avatar.uri }} 
-              style={[styles.avatar, { borderColor }]} 
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.avatar, styles.placeholderAvatar, { borderColor, backgroundColor: backgroundSecondary }]}>
-              <Ionicons name="person" size={50} color={iconColor} />
-            </View>
-          )}
-          <View style={[
-            styles.avatarEditIcon,
-            { backgroundColor: tintColor, borderColor: backgroundColor },
-            isLoading ? { opacity: 0.7 } : undefined
-          ]}>
-            <Ionicons name="camera" size={16} color={backgroundColor} />
-          </View>
-        </TouchableOpacity>
-        
-        <Formik
-          initialValues={{ 
-            email: '', 
-            firstName: '', 
-            lastName: '', 
-            password: '', 
-            confirmPassword: '' 
-          }}
-          validationSchema={RegisterSchema}
-          onSubmit={handleRegister}
-        >
-          {(formikProps) => (
-            <View style={styles.formContainer}>
-              <FormField
-                label="Email"
-                formikKey="email"
-                formikProps={formikProps}
-                placeholder={Strings.auth.register.emailPlaceholder}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                leftIcon={<Ionicons name="mail-outline" size={20} color={iconColor} />}
-                editable={!isLoading}
-              />
-              
-              <FormField
-                label="Nombre"
-                formikKey="firstName"
-                formikProps={formikProps}
-                placeholder={Strings.auth.register.firstNamePlaceholder}
-                autoCapitalize="words"
-                leftIcon={<Ionicons name="person-outline" size={20} color={iconColor} />}
-                editable={!isLoading}
-              />
-              
-              <FormField
-                label="Apellido"
-                formikKey="lastName"
-                formikProps={formikProps}
-                placeholder={Strings.auth.register.lastNamePlaceholder}
-                autoCapitalize="words"
-                leftIcon={<Ionicons name="person-outline" size={20} color={iconColor} />}
-                editable={!isLoading}
-              />
-              
-              <FormField
-                label="Contraseña"
-                formikKey="password"
-                formikProps={formikProps}
-                placeholder={Strings.auth.register.passwordPlaceholder}
-                secureTextEntry={true}
-                leftIcon={<Ionicons name="lock-closed-outline" size={20} color={iconColor} />}
-                editable={!isLoading}
-              />
-              
-              <FormField
-                label="Confirmar Contraseña"
-                formikKey="confirmPassword"
-                formikProps={formikProps}
-                placeholder={Strings.auth.register.confirmPasswordPlaceholder}
-                secureTextEntry={true}
-                leftIcon={<Ionicons name="lock-closed-outline" size={20} color={iconColor} />}
-                editable={!isLoading}
-              />
-              
-              <ThemedButton
-                title={Strings.auth.register.registerButton}
-                onPress={() => formikProps.handleSubmit()}
-                loading={isLoading}
-                disabled={isLoading || !formikProps.isValid || formikProps.isSubmitting}
-                style={styles.registerButton}
-                size="large"
-              />
-            </View>
-          )}
-        </Formik>
-        
-        <View style={styles.loginContainer}>
-          <ThemedText>{Strings.auth.register.hasAccount} </ThemedText>
-          <TouchableOpacity 
-            onPress={handleLogin}
-            disabled={isLoading}
-          >
-            <ThemedText 
-              type="link"
-              style={isLoading ? { opacity: 0.7 } : undefined}
-            >
-              {Strings.auth.register.loginAction}
+        <View style={[styles.cardContainer, { backgroundColor }]}>
+          <View style={styles.titleContainer}>
+            <ThemedText type="title" style={styles.title}>
+              {Strings.auth.register.title}
             </ThemedText>
-          </TouchableOpacity>
-        </View>
-        
-        <TermsText onTermsPress={() => Alert.alert('Términos', 'Aquí se mostrarían los términos y condiciones.')} />
-      </ScrollView>
+            <ThemedText
+              style={[styles.subtitle, { color: textSecondaryColor }]}
+            >
+              {Strings.auth.register.subtitle}
+            </ThemedText>
+          </View>
 
-      {/* Modal para seleccionar imagen */}
-      <ImagePickerModal 
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onImageSelected={handleImageSelected}
-      />
+          <Formik
+            initialValues={{
+              email: "",
+              phone: "",
+              firstName: "",
+              lastName: "",
+              password: "",
+              confirmPassword: "",
+              acceptTerms: false,
+            }}
+            validationSchema={RegisterSchema}
+            onSubmit={handleRegister}
+          >
+            {(formikProps) => (
+              <View style={styles.formContainer}>
+                <FormField
+                  label="Email"
+                  formikKey="email"
+                  formikProps={formikProps}
+                  placeholder={Strings.auth.register.emailPlaceholder}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  leftIcon={
+                    <Ionicons name="mail-outline" size={20} color={iconColor} />
+                  }
+                  editable={!isLoading}
+                />
+
+                <FormField
+                  label="Phone Number"
+                  formikKey="phone"
+                  formikProps={formikProps}
+                  placeholder={Strings.auth.register.phonePlaceholder}
+                  keyboardType="phone-pad"
+                  leftIcon={
+                    <Ionicons name="call-outline" size={20} color={iconColor} />
+                  }
+                  editable={!isLoading}
+                />
+
+                <FormField
+                  label="Password"
+                  formikKey="password"
+                  formikProps={formikProps}
+                  placeholder={Strings.auth.register.passwordPlaceholder}
+                  secureTextEntry={true}
+                  leftIcon={
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color={iconColor}
+                    />
+                  }
+                  editable={!isLoading}
+                />
+
+                {/* Terms & Conditions Checkbox */}
+                <View style={styles.termsContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.checkbox,
+                      {
+                        borderColor: formikProps.values.acceptTerms
+                          ? tintColor
+                          : borderColor,
+                        backgroundColor: formikProps.values.acceptTerms
+                          ? tintColor
+                          : "transparent",
+                      },
+                    ]}
+                    onPress={() =>
+                      formikProps.setFieldValue(
+                        "acceptTerms",
+                        !formikProps.values.acceptTerms
+                      )
+                    }
+                    disabled={isLoading}
+                  >
+                    {formikProps.values.acceptTerms && (
+                      <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.termsTextContainer}>
+                    <Text
+                      style={[styles.termsText, { color: textSecondaryColor }]}
+                    >
+                      {Strings.auth.register.termsText}{" "}
+                    </Text>
+                    <TouchableOpacity onPress={handleTermsPress}>
+                      <Text style={[styles.termsLink, { color: tintColor }]}>
+                        {Strings.auth.register.termsLink}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text
+                      style={[styles.termsText, { color: textSecondaryColor }]}
+                    >
+                      {" "}
+                      &{" "}
+                    </Text>
+                    <TouchableOpacity onPress={handlePrivacyPress}>
+                      <Text style={[styles.termsLink, { color: tintColor }]}>
+                        {Strings.auth.register.privacyLink}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {formikProps.touched.acceptTerms &&
+                  formikProps.errors.acceptTerms && (
+                    <Text
+                      style={[
+                        styles.errorText,
+                        { color: useThemeColor({}, "error") },
+                      ]}
+                    >
+                      {formikProps.errors.acceptTerms.toString()}
+                    </Text>
+                  )}
+
+                <ThemedButton
+                  title={Strings.auth.register.registerButton}
+                  onPress={() => formikProps.handleSubmit()}
+                  loading={isLoading}
+                  disabled={
+                    isLoading ||
+                    !formikProps.isValid ||
+                    formikProps.isSubmitting
+                  }
+                  style={styles.registerButton}
+                  size="large"
+                />
+
+                <SocialAuthButton
+                  provider="google"
+                  onPress={handleGoogleSignup}
+                  disabled={isLoading}
+                  style={styles.googleButton}
+                />
+              </View>
+            )}
+          </Formik>
+
+          <View style={styles.loginContainer}>
+            <ThemedText style={{ color: textSecondaryColor }}>
+              {Strings.auth.register.hasAccount}
+            </ThemedText>
+            <TouchableOpacity onPress={handleLogin} disabled={isLoading}>
+              <ThemedText style={[styles.loginLink, { color: tintColor }]}>
+                {Strings.auth.register.loginAction}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -244,60 +305,110 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   scrollContent: {
     flexGrow: 1,
-    padding: 20,
-    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 10,
+  illustrationContainer: {
+    alignItems: "center",
+    marginBottom: 30,
   },
-  logo: {
-    width: 80,
-    height: 80,
+  cardContainer: {
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 40,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
+    minHeight: 520,
+  },
+  titleContainer: {
+    alignItems: "center",
+    marginBottom: 32,
   },
   title: {
-    textAlign: 'center',
-    marginBottom: 10,
+    textAlign: "center",
+    marginBottom: 8,
+    fontSize: 24,
+    fontWeight: "600",
   },
-  avatarContainer: {
-    marginTop: 20,
-    marginBottom: 20,
-    position: 'relative',
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-  },
-  placeholderAvatar: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarEditIcon: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
+  subtitle: {
+    textAlign: "center",
+    fontSize: 16,
   },
   formContainer: {
-    width: '100%',
-    maxWidth: 350,
+    width: "100%",
+    marginBottom: 24,
+  },
+  termsContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 24,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    marginRight: 12,
+    marginTop: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  termsTextContainer: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+  termsText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  termsLink: {
+    fontSize: 14,
+    fontWeight: "500",
+    textDecorationLine: "underline",
+  },
+  errorText: {
+    fontSize: 12,
+    marginBottom: 16,
+    marginTop: -8,
   },
   registerButton: {
-    marginTop: 10,
-    width: '100%',
+    marginBottom: 16,
+    width: "100%",
+  },
+  googleButton: {
+    marginBottom: 24,
   },
   loginContainer: {
-    flexDirection: 'row',
-    marginTop: 30,
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
-}); 
+  loginLink: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 4,
+  },
+});

@@ -27,7 +27,7 @@ export default function PublicLayout() {
       <Stack.Screen
         name="register"
         options={{
-          headerTitle: "Sign Up",
+          headerShown: false,
         }}
       />
       <Stack.Screen

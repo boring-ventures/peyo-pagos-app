@@ -37,7 +37,7 @@ export const FormField: React.FC<FormFieldProps> = ({
   
   const textColor = useThemeColor({}, 'text');
   const placeholderColor = useThemeColor({}, 'textSecondary');
-  const backgroundColor = useThemeColor({}, 'backgroundSecondary');
+  const backgroundColor = useThemeColor({}, 'background');
   const borderColor = useThemeColor({}, 'border');
   const errorColor = useThemeColor({}, 'error');
   const primaryColor = useThemeColor({}, 'tint');
@@ -56,6 +56,19 @@ export const FormField: React.FC<FormFieldProps> = ({
   };
   
   const error = formikProps.touched[formikKey] && formikProps.errors[formikKey];
+  const hasValue = formikProps.values[formikKey] && formikProps.values[formikKey].length > 0;
+  
+  const getBorderColor = () => {
+    if (error) return errorColor;
+    if (isFocused) return primaryColor;
+    if (hasValue) return primaryColor;
+    return borderColor;
+  };
+  
+  const getBorderWidth = () => {
+    if (error || isFocused || hasValue) return 1.5;
+    return 1;
+  };
   
   return (
     <View style={styles.container}>
@@ -66,8 +79,8 @@ export const FormField: React.FC<FormFieldProps> = ({
           styles.inputContainer,
           { 
             backgroundColor,
-            borderColor: error ? errorColor : (isFocused ? primaryColor : borderColor),
-            borderWidth: error || isFocused ? 1 : 0.5,
+            borderColor: getBorderColor(),
+            borderWidth: getBorderWidth(),
           }
         ]}
       >
@@ -78,7 +91,7 @@ export const FormField: React.FC<FormFieldProps> = ({
             styles.input, 
             { 
               color: textColor,
-              marginLeft: leftIcon ? 0 : 12,
+              marginLeft: leftIcon ? 0 : 16,
             }
           ]}
           placeholder={props.placeholder}
@@ -100,8 +113,8 @@ export const FormField: React.FC<FormFieldProps> = ({
           >
             <Ionicons 
               name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} 
-              size={22} 
-              color={placeholderColor}
+              size={20} 
+              color={hasValue || isFocused ? primaryColor : placeholderColor}
             />
           </TouchableOpacity>
         )}
@@ -118,7 +131,7 @@ export const FormField: React.FC<FormFieldProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 20,
     width: '100%',
   },
   label: {
@@ -129,12 +142,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    overflow: 'hidden',
-    height: 48,
+    borderRadius: 12,
+    height: 56,
+    borderWidth: 1,
   },
   iconContainer: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
@@ -144,14 +157,15 @@ const styles = StyleSheet.create({
     height: '100%',
     padding: 0,
     fontSize: 16,
+    paddingRight: 16,
   },
   visibilityToggle: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     height: '100%',
     justifyContent: 'center',
   },
   errorText: {
-    marginTop: 4,
+    marginTop: 6,
     fontSize: 12,
     fontWeight: '400',
   },

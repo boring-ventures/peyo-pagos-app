@@ -12,6 +12,7 @@ export type ProfileData = {
   email: string;
   first_name: string;
   last_name: string;
+  phone?: string;
   avatar_url?: string;
 };
 
@@ -155,6 +156,7 @@ export const authService = {
           data: {
             first_name: profileData.first_name,
             last_name: profileData.last_name,
+            phone: profileData.phone,
             avatar_url: profileData.avatar_url,
           },
         },
@@ -188,6 +190,7 @@ export const authService = {
             email,
             first_name: profileData.first_name,
             last_name: profileData.last_name,
+            phone: profileData.phone,
             avatar_url: avatarUrl || profileData.avatar_url,
             updated_at: new Date(),
           });
@@ -288,7 +291,7 @@ export const authService = {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('email, first_name, last_name, avatar_url')
+        .select('email, first_name, last_name, phone, avatar_url')
         .eq('id', userId)
         .single();
 

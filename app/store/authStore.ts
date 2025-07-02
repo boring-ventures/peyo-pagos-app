@@ -7,6 +7,7 @@ type ProfileState = {
   first_name: string;
   last_name: string;
   email: string;
+  phone?: string;
   avatar_url?: string;
 };
 
@@ -169,6 +170,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           email,
           first_name: profile.first_name,
           last_name: profile.last_name,
+          phone: profile.phone,
           avatar_url: profile.avatar_url,
         },
         avatar
