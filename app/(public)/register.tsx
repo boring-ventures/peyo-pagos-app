@@ -76,7 +76,7 @@ export default function RegisterScreen() {
       // Navigate to OTP verification with email parameter
       router.push({
         pathname: "/(public)/otp-verification",
-        params: { email: values.email },
+        params: { email: values.email, purpose: 'signup' },
       } as any);
     } catch (error) {
       console.error("Register error:", error);

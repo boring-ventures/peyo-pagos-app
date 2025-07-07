@@ -1,69 +1,43 @@
 import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
-import { useThemeColor } from '@/app/hooks/useThemeColor';
-import { useKycStore } from '@/app/store';
+import { useThemedAsset } from '@/app/hooks/useThemedAsset';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, View, useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function DocumentReviewScreen() {
+export default function VerificationSuccessScreen() {
   const router = useRouter();
-  const { documents, completeVerification, isLoading } = useKycStore();
-  const cardColor = useThemeColor({}, 'card');
-  const iconColor = useThemeColor({}, 'icon');
+  const colorScheme = useColorScheme();
+  const logo = useThemedAsset(
+    require('@/assets/images/icon-light.png'),
+    require('@/assets/images/icon-dark.png')
+  );
 
-  const handleSubmit = async () => {
-    await completeVerification();
-    // In a real app, navigation would likely depend on the verification result
-    router.push('./biometric-setup'); 
+  const handleContinue = () => {
+    router.replace('/(private)/home');
   };
-  
-  const handleRetake = (path: string) => {
-    router.push(path as any);
-  }
 
   return (
     <ThemedView style={styles.container}>
-        <ScrollView>
-            <ThemedText type="title" style={styles.title}>Revisa tus documentos</ThemedText>
-            <ThemedText style={styles.subtitle}>Asegúrate que toda la información sea legible.</ThemedText>
-
-            <View style={[styles.imageContainer, { backgroundColor: cardColor }]}>
-                <ThemedText style={styles.imageLabel}>Frente del Documento</ThemedText>
-                {documents.idFront && <Image source={{ uri: documents.idFront }} style={styles.image} />}
-                <TouchableOpacity style={styles.retakeButton} onPress={() => handleRetake('./document-front')}>
-                    <Ionicons name="camera-reverse-outline" size={16} color={iconColor} />
-                    <ThemedText style={styles.retakeText}>Reintentar</ThemedText>
-                </TouchableOpacity>
-            </View>
-
-            <View style={[styles.imageContainer, { backgroundColor: cardColor }]}>
-                <ThemedText style={styles.imageLabel}>Dorso del Documento</ThemedText>
-                {documents.idBack && <Image source={{ uri: documents.idBack }} style={styles.image} />}
-                <TouchableOpacity style={styles.retakeButton} onPress={() => handleRetake('./document-back')}>
-                    <Ionicons name="camera-reverse-outline" size={16} color={iconColor} />
-                    <ThemedText style={styles.retakeText}>Reintentar</ThemedText>
-                </TouchableOpacity>
-            </View>
-
-            <View style={[styles.imageContainer, { backgroundColor: cardColor }]}>
-                <ThemedText style={styles.imageLabel}>Selfie</ThemedText>
-                {documents.selfie && <Image source={{ uri: documents.selfie }} style={styles.image} />}
-                <TouchableOpacity style={styles.retakeButton} onPress={() => handleRetake('./selfie-capture')}>
-                    <Ionicons name="camera-reverse-outline" size={16} color={iconColor} />
-                    <ThemedText style={styles.retakeText}>Reintentar</ThemedText>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
-      <ThemedButton
-        onPress={handleSubmit}
-        title="Enviar Verificación"
-        loading={isLoading}
-        disabled={isLoading || !documents.idFront || !documents.idBack || !documents.selfie}
-        style={styles.button}
-      />
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <View style={styles.logoWrapper}>
+          <Ionicons name="logo-buffer" size={1} color="transparent" />
+          <View style={styles.logoContainer}>
+            <Image source={logo} style={styles.logo} />
+          </View>
+        </View>
+      </SafeAreaView>
+      <View style={styles.content}>
+        <View style={styles.checkCircle}>
+          <Ionicons name="checkmark" size={72} color="#fff" />
+        </View>
+        <ThemedText type="title" style={styles.title}>Gracias</ThemedText>
+        <ThemedText style={styles.subtitle}>Tus datos de verificación se enviaron correctamente</ThemedText>
+      </View>
+      <ThemedButton title="Continuar" onPress={handleContinue} style={styles.button} />
     </ThemedView>
   );
 }
@@ -71,43 +45,51 @@ export default function DocumentReviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0F172A',
     padding: 24,
+    justifyContent: 'space-between',
+  },
+  safeArea: {
+    alignItems: 'center',
+  },
+  logoWrapper: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logoContainer: {
+    alignItems: 'center',
+  },
+  logo: {
+    width: 120,
+    height: 24,
+    resizeMode: 'contain',
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#4ADE80',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 40,
   },
   title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
     textAlign: 'center',
-    marginBottom: 8,
   },
   subtitle: {
+    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
-  },
-  imageContainer: {
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  imageLabel: {
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  image: {
-    width: '100%',
-    height: 200,
-    resizeMode: 'contain',
-    marginBottom: 8,
-    borderRadius: 8,
-  },
-  retakeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-  },
-  retakeText: {
-    marginLeft: 8,
-    fontWeight: 'bold',
+    marginBottom: 32,
   },
   button: {
-    marginTop: 16,
+    marginBottom: 16,
   },
 }); 

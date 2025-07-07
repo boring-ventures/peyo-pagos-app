@@ -2,9 +2,11 @@ import DocumentCamera from '@/app/components/kyc/DocumentCamera';
 import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
 import { useKycStore } from '@/app/store';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DocumentFrontScreen() {
   const router = useRouter();
@@ -17,10 +19,17 @@ export default function DocumentFrontScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.title}>Documento (Frente)</ThemedText>
-      <ThemedText style={styles.subtitle}>
-        Asegúrate de que la imagen esté clara y todos los datos sean legibles.
-      </ThemedText>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+          <ThemedText style={styles.headerTitle}>Documento (Frente)</ThemedText>
+        </View>
+        <ThemedText style={styles.subtitle}>
+          Asegúrate de que la imagen esté clara y todos los datos sean legibles.
+        </ThemedText>
+      </SafeAreaView>
       <View style={styles.cameraContainer}>
         <DocumentCamera onPictureTaken={handlePictureTaken} overlayType="id-card" />
       </View>
@@ -31,16 +40,33 @@ export default function DocumentFrontScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
   },
-  title: {
+  safeArea: {
+    paddingHorizontal: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1E293B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    textAlign: 'center',
+    marginLeft: 5,
   },
   subtitle: {
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 16,
+    paddingHorizontal: 10,
   },
   cameraContainer: {
     flex: 1,

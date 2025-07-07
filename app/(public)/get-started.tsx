@@ -76,6 +76,7 @@ export default function GetStartedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0F172A",
   },
   safeArea: {
     flex: 1,

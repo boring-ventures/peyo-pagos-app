@@ -41,7 +41,7 @@ export default function ForgotPasswordScreen() {
             onPress: () =>
               router.push({
                 pathname: "/(public)/otp-verification",
-                params: { email: values.email },
+                params: { email: values.email, purpose: 'passwordReset' },
               }),
           },
         ]

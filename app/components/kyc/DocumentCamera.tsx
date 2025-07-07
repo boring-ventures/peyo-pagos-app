@@ -79,21 +79,25 @@ const DocumentCamera: React.FC<DocumentCameraProps> = ({ onPictureTaken, overlay
       {preview ? (
         <View style={styles.previewContainer}>
           <Image source={{ uri: preview }} style={styles.previewImage} />
-          <View style={styles.previewControls}>
-            <ThemedButton title="Reintentar" onPress={() => setPreview(null)} type="secondary" />
-            <ThemedButton title="Confirmar" onPress={confirmPicture} />
+          <View style={styles.controlsFloating}>
+            <TouchableOpacity onPress={() => setPreview(null)} style={styles.iconButton}>
+              <Ionicons name="trash" size={28} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={confirmPicture} style={styles.captureButtonSmall}>
+              <Ionicons name="checkmark" size={28} color="white" />
+            </TouchableOpacity>
           </View>
         </View>
       ) : (
         <CameraView style={styles.camera} facing={facing} flash={flash} ref={cameraRef}>
           {renderOverlay()}
-          <View style={styles.controlsContainer}>
-            <TouchableOpacity onPress={toggleFlash}>
-              <Ionicons name={flash === 'off' ? 'flash-off' : 'flash'} size={30} color="white" />
+          <View style={styles.controlsFloating}>
+            <TouchableOpacity onPress={toggleFacing} style={styles.iconButton}>
+              <Ionicons name="camera-reverse" size={28} color="white" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.captureButton} onPress={takePicture} />
-            <TouchableOpacity onPress={toggleFacing}>
-              <Ionicons name="camera-reverse" size={30} color="white" />
+            <TouchableOpacity onPress={toggleFlash} style={styles.iconButton}>
+              <Ionicons name={flash === 'off' ? 'flash-off' : 'flash'} size={28} color="white" />
             </TouchableOpacity>
           </View>
         </CameraView>
@@ -115,12 +119,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
-  controlsContainer: {
+  controlsFloating: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingVertical: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     position: 'absolute',
     bottom: 0,
     width: '100%',
@@ -132,6 +137,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderWidth: 5,
     borderColor: '#ccc',
+  },
+  captureButtonSmall: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   idCardOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -159,14 +180,6 @@ const styles = StyleSheet.create({
   previewImage: {
     flex: 1,
     width: '100%',
-  },
-  previewControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    padding: 20,
-    position: 'absolute',
-    bottom: 0,
   },
 });
 

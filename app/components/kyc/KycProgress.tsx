@@ -15,45 +15,38 @@ const steps: KycStep[] = [
 const KycProgress: React.FC = () => {
   const { currentStep } = useKycStore();
   const primaryColor = useThemeColor({}, 'tint');
-  const mutedColor = useThemeColor({}, 'backgroundSecondary');
+  const trackColor = useThemeColor({}, 'backgroundSecondary');
 
   const currentStepIndex = steps.indexOf(currentStep);
+  const progressPercent = ((currentStepIndex + 1) / steps.length) * 100;
 
   return (
-    <View style={styles.container}>
-      {steps.map((step, index) => {
-        const isCompleted = index < currentStepIndex;
-        const isActive = index === currentStepIndex;
-
-        return (
-          <View
-            key={step}
-            style={[
-              styles.step,
-              {
-                backgroundColor: isCompleted || isActive ? primaryColor : mutedColor,
-              },
-            ]}
-          />
-        );
-      })}
+    <View style={[styles.track, { backgroundColor: trackColor }]}>
+      <View
+        style={[
+          styles.progress,
+          {
+            width: `${progressPercent}%`,
+            backgroundColor: primaryColor,
+          },
+        ]}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    height: 4,
-    width: '50%',
+  track: {
+    width: '60%',
+    height: 6,
+    borderRadius: 3,
     alignSelf: 'center',
+    overflow: 'hidden',
     marginBottom: 16,
   },
-  step: {
-    flex: 1,
+  progress: {
     height: '100%',
-    borderRadius: 2,
-    marginHorizontal: 2,
+    borderRadius: 3,
   },
 });
 

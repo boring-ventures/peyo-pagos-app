@@ -1,77 +1,41 @@
+import { ThemedText } from '@/app/components/ThemedText';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View, useColorScheme } from 'react-native';
 
-export interface OTPInputProps {
+interface OTPInputProps {
   value: string;
-  length?: number;
-  error?: boolean;
-  isPin?: boolean;
+  length: number;
 }
 
-export const OTPInput: React.FC<OTPInputProps> = ({
-  value,
-  length = 4,
-  error = false,
-  isPin = false,
-}) => {
-  const textColor = useThemeColor({}, 'text');
-  const backgroundColor = useThemeColor({}, 'background');
-  const borderColor = useThemeColor({}, 'border');
+export const OTPInput: React.FC<OTPInputProps> = ({ value, length }) => {
+  const otpArray = Array(length).fill(0);
+  const colorScheme = useColorScheme();
+  
   const primaryColor = useThemeColor({}, 'tint');
-  const errorColor = useThemeColor({}, 'error');
-  const textSecondaryColor = useThemeColor({}, 'textSecondary');
-
-  const digits = value.split('');
-
-  const getDigitStyle = (index: number) => {
-    const hasValue = digits[index] !== undefined;
-    const isActive = index === digits.length && !error;
-    const isError = error && hasValue;
-
-    return [
-      styles.digit,
-      {
-        backgroundColor,
-        borderColor: isError 
-          ? errorColor 
-          : isActive 
-            ? primaryColor 
-            : hasValue 
-              ? primaryColor 
-              : borderColor,
-        borderWidth: isError || isActive || hasValue ? 2 : 1,
-      }
-    ];
-  };
-
-  const getDigitTextStyle = (index: number) => {
-    const hasValue = digits[index] !== undefined;
-    return [
-      styles.digitText,
-      {
-        color: hasValue ? textColor : textSecondaryColor,
-      }
-    ];
-  };
-
-  const renderDigit = (digit: string, index: number) => {
-    if (!isPin) {
-      return digit || '';
-    }
-    // For PIN, show a dot if there is a value
-    return digit ? '•' : '';
-  }
+  const boxBackgroundColor = colorScheme === 'dark' ? '#2D3F5B' : useThemeColor({}, 'card');
 
   return (
     <View style={styles.container}>
-      {Array.from({ length }, (_, index) => (
-        <View key={index} style={getDigitStyle(index)}>
-          <Text style={getDigitTextStyle(index)}>
-            {renderDigit(digits[index], index)}
-          </Text>
-        </View>
-      ))}
+      {otpArray.map((_, index) => {
+        const char = value[index];
+        const isFocused = index === value.length;
+
+        return (
+          <View
+            key={index}
+            style={[
+              styles.box,
+              { 
+                backgroundColor: boxBackgroundColor,
+                borderColor: isFocused ? primaryColor : 'transparent',
+              },
+            ]}
+          >
+            {char ? <ThemedText style={styles.digit}>{char}</ThemedText> : <View style={styles.placeholder} />}
+          </View>
+        );
+      })}
     </View>
   );
 };
@@ -81,20 +45,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
-  digit: {
-    width: 64,
-    height: 64,
+  box: {
+    width: 60,
+    height: 60,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
-  digitText: {
+  digit: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
+  placeholder: {
+    width: 2,
+    height: 24,
+    backgroundColor: '#9DA3AF', // A neutral placeholder color
+  }
 });
 
 export default OTPInput; 

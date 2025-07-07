@@ -5,7 +5,13 @@ import { useThemedAsset } from '@/app/hooks/useThemedAsset';
 import { useAuthStore } from '@/app/store';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import {
+  Image,
+  StyleSheet,
+  View,
+  useColorScheme,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -15,6 +21,13 @@ export default function WelcomeScreen() {
     require('@/assets/images/onboarding/success.png')
   );
 
+  // fixed dark logo as requested
+  const logoAsset = require('@/assets/images/icon-dark.png');
+
+  const colorScheme = useColorScheme();
+  console.log(colorScheme)
+  const cardBg = colorScheme === 'dark' ? '#1A2B42' : '#FFFFFF';
+
   const handleContinue = () => {
     // Navigate to the main app dashboard
     router.replace('/(private)/home');
@@ -22,20 +35,25 @@ export default function WelcomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.content}>
-        <Image source={successAsset} style={styles.image} />
-        <ThemedText type="title" style={styles.title}>
-          ¡Gracias, {profile?.first_name}!
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Tus datos de verificación se enviaron correctamente.
-        </ThemedText>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <Image source={logoAsset} style={styles.logo} />
+      </SafeAreaView>
+      <View style={styles.cardSheetWrapper}>
+        <View style={[styles.cardSheet, { backgroundColor: cardBg }]}>
+          <Image source={successAsset} style={styles.image} />
+          <ThemedText type="title" style={styles.title}>
+            ¡Gracias, {profile?.first_name}!
+          </ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Tus datos de verificación se enviaron correctamente.
+          </ThemedText>
+          <ThemedButton
+            onPress={handleContinue}
+            title="Continuar"
+            style={styles.button}
+          />
+        </View>
       </View>
-      <ThemedButton
-        onPress={handleContinue}
-        title="Continuar"
-        style={styles.button}
-      />
     </ThemedView>
   );
 }
@@ -43,14 +61,37 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  safeArea: {
+    alignItems: 'center',
+    paddingTop: 12,
+  },
+  logo: {
+    width: 120,
+    height: 24,
+    resizeMode: 'contain',
+    marginBottom: 16,
+  },
+  cardSheetWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  cardSheet: {
+    width: '100%',
+    borderRadius: 24,
     padding: 24,
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   content: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 48,
   },
   image: {
     width: 150,
@@ -69,6 +110,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   button: {
-    marginBottom: 16,
+    marginTop: 24,
+    alignSelf: 'stretch',
   },
 }); 
