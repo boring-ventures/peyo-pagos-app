@@ -25,7 +25,7 @@ export default function WelcomeScreen() {
         <View style={styles.content}>
           {/* Logo/Illustration */}
           <View style={styles.logoContainer}>
-            <OnboardingIllustration type="welcome" size={200} />
+            <OnboardingIllustration type="welcome" size={400} />
           </View>
           
           {/* Text Content */}
@@ -43,14 +43,14 @@ export default function WelcomeScreen() {
         {/* Bottom Actions */}
         <View style={styles.actionsContainer}>
           <ThemedButton
-            title="Get Started"
+            title="Empezar"
             size="large"
             onPress={handleGetStarted}
             style={styles.primaryButton}
           />
           
           <ThemedButton
-            title="Skip to Auth"
+            title="Omitir"
             type="text"
             onPress={handleSkip}
             style={styles.secondaryButton}

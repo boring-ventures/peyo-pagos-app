@@ -5,10 +5,10 @@
 
 // Peyo Brand Colors
 const brandColors = {
-  primary: '#4ECDC4',        // Primary Turquoise from logo
-  primaryDark: '#1A2B42',    // Dark navy from logo text
-  primaryLight: '#7FDBDA',   // Lighter variant of turquoise
-  primaryContrast: '#FFFFFF', // White for contrast
+  primary: '#61D372',        // Green
+  primaryDark: '#0B1E3D',    // Navy
+  primaryLight: '#6DDADB',   // Light Cyan
+  primaryContrast: '#F0F0F0', // Light Gray/White
 };
 
 const tintColorLight = brandColors.primary;
@@ -17,49 +17,49 @@ const tintColorDark = brandColors.primaryLight;
 export const Colors = {
   // Brand color constants for consistent usage
   brand: {
-    primary: '#4ECDC4',
-    primaryDark: '#1A2B42',
-    primaryLight: '#7FDBDA',
-    primaryContrast: '#FFFFFF',
+    primary: '#61D372',
+    primaryDark: '#0B1E3D',
+    primaryLight: '#6DDADB',
+    primaryContrast: '#F0F0F0',
     // Additional brand color variants
-    primaryHover: '#3DB5B0',    // Darker turquoise for hover states
-    primaryDisabled: '#A8E6E2',  // Lighter turquoise for disabled states
+    primaryHover: '#4DB05E',    // Slightly darker green for hover
+    primaryDisabled: '#A8E6E2',  // Lighter cyan for disabled
   },
   light: {
-    text: '#1A2B42',              // Use brand dark for main text
-    textSecondary: '#5A6B7F',     // Softer variant of brand dark
-    background: '#FFFFFF',         // Pure white background
-    backgroundSecondary: '#F8FAFA', // Very light gray with hint of turquoise
-    backgroundTertiary: '#F0F6F6',  // Slightly more turquoise tint
-    tint: tintColorLight,          // Brand primary turquoise
-    icon: '#5A6B7F',              // Softer icon color
-    tabIconDefault: '#8A9BA8',     // Muted tab icons
-    tabIconSelected: tintColorLight, // Active tab uses brand color
-    border: '#E1E8EA',            // Light border with subtle turquoise hint
+    text: '#0B1E3D',              // Navy for main text
+    textSecondary: '#4DB05E',     // Softer green
+    background: '#F0F0F0',        // Light gray background
+    backgroundSecondary: '#FFFFFF', // Pure white for cards
+    backgroundTertiary: '#6DDADB',  // Cyan accent
+    tint: tintColorLight,          // Brand green
+    icon: '#4DB05E',              // Softer green icon
+    tabIconDefault: '#6DDADB',     // Cyan for default tab
+    tabIconSelected: tintColorLight, // Active tab uses brand green
+    border: '#E1E8EA',            // Light border
     card: '#FFFFFF',              // Pure white cards
-    notification: '#FF4757',       // Bright red for notifications
-    success: '#2ED573',           // Green that complements turquoise
-    error: '#FF4757',             // Consistent error red
+    notification: '#FF4757',       // Red for notifications
+    success: '#61D372',           // Brand green for success
+    error: '#FF4757',             // Error red
     warning: '#FFA726',           // Orange warning
-    info: '#4ECDC4',              // Use brand primary for info
+    info: '#6DDADB',              // Cyan for info
   },
   dark: {
-    text: '#FFFFFF',              // Pure white text
-    textSecondary: '#B8C5D1',     // Light gray text
-    background: '#1A2B42',        // Use brand dark as main background
-    backgroundSecondary: '#243447', // Slightly lighter navy
-    backgroundTertiary: '#2E3F54', // Even lighter navy variant
-    tint: tintColorDark,          // Lighter turquoise for dark mode
-    icon: '#B8C5D1',             // Light gray icons
-    tabIconDefault: '#8A9BA8',    // Muted tab icons
-    tabIconSelected: tintColorDark, // Active tab uses light turquoise
-    border: '#354A61',           // Dark border
-    card: '#243447',             // Dark card background
-    notification: '#FF6B7A',      // Softer red for dark mode
-    success: '#4CD471',          // Brighter green for dark mode
-    error: '#FF6B7A',            // Softer error red for dark mode
-    warning: '#FFBD4A',          // Brighter orange for dark mode
-    info: '#7FDBDA',             // Light turquoise for info in dark mode
+    text: '#F0F0F0',              // Light gray text
+    textSecondary: '#6DDADB',      // Cyan text
+    background: '#0B1E3D',        // Navy background
+    backgroundSecondary: '#142A4D', // Slightly lighter navy
+    backgroundTertiary: '#6DDADB', // Cyan accent
+    tint: tintColorDark,           // Cyan for tint
+    icon: '#6DDADB',               // Cyan icons
+    tabIconDefault: '#6DDADB',     // Cyan for default tab
+    tabIconSelected: tintColorDark, // Active tab uses cyan
+    border: '#354A61',             // Dark border
+    card: '#142A4D',               // Navy card background
+    notification: '#FF6B7A',       // Red for notifications
+    success: '#61D372',            // Brand green for success
+    error: '#FF6B7A',              // Error red
+    warning: '#FFBD4A',            // Orange warning
+    info: '#6DDADB',               // Cyan for info
   },
 };
 

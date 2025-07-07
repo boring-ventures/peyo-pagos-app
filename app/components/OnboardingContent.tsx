@@ -1,7 +1,7 @@
 import { OnboardingIllustration } from '@/app/components/OnboardingIllustration';
 import { ThemedText } from '@/app/components/ThemedText';
 import React from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, View, ViewStyle } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -11,18 +11,20 @@ type OnboardingContentProps = {
   title: string;
   subtitle: string;
   illustrationType: IllustrationType;
+  style?: ViewStyle;
 };
 
 export function OnboardingContent({
   title,
   subtitle,
   illustrationType,
+  style,
 }: OnboardingContentProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       {/* Illustration */}
       <View style={styles.illustrationContainer}>
-        <OnboardingIllustration type={illustrationType} size={240} />
+        <OnboardingIllustration type={illustrationType} size={350} />
       </View>
 
       {/* Text Content */}
@@ -30,7 +32,7 @@ export function OnboardingContent({
         <ThemedText type="title" style={styles.title}>
           {title}
         </ThemedText>
-        <ThemedText style={styles.subtitle}>
+        <ThemedText type="subtitle" style={styles.subtitle}>
           {subtitle}
         </ThemedText>
       </View>
@@ -47,25 +49,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   illustrationContainer: {
-    marginBottom: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   textContainer: {
+    width: '100%',
     alignItems: 'center',
     paddingHorizontal: 20,
+    marginBottom: 40,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 34,
+    marginBottom: 12,
+    width: '100%',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
     opacity: 0.8,
-    maxWidth: 320,
+    width: '100%',
   },
 });
 

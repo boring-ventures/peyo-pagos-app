@@ -1,60 +1,61 @@
-import { OnboardingContent } from '@/app/components/OnboardingContent';
-import { OnboardingProgress } from '@/app/components/OnboardingProgress';
-import { ThemedButton } from '@/app/components/ThemedButton';
-import { ThemedText } from '@/app/components/ThemedText';
-import { ThemedView } from '@/app/components/ThemedView';
-import { Strings } from '@/app/constants/Strings';
-import { useThemeColor } from '@/app/hooks/useThemeColor';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Dimensions, SafeAreaView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { PanGestureHandler } from 'react-native-gesture-handler';
+import { OnboardingContent } from "@/app/components/OnboardingContent";
+import { OnboardingProgress } from "@/app/components/OnboardingProgress";
+import { ThemedButton } from "@/app/components/ThemedButton";
+import ThemedText from "@/app/components/ThemedText";
+import { ThemedView } from "@/app/components/ThemedView";
+import { Strings } from "@/app/constants/Strings";
+import { useThemeColor } from "@/app/hooks/useThemeColor";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { Dimensions, StyleSheet, TouchableOpacity, View } from "react-native";
+import { PanGestureHandler } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
   useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 const TOTAL_SCREENS = 4;
 
 export default function OnboardingCarouselScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const translateX = useSharedValue(0);
-  const textSecondaryColor = useThemeColor({}, 'textSecondary');
+  const textSecondaryColor = useThemeColor({}, "textSecondary");
 
   const screens = [
     {
       title: Strings.onboarding.screens[0].title,
       subtitle: Strings.onboarding.screens[0].subtitle,
       buttonText: Strings.onboarding.screens[0].buttonText,
-      illustrationType: 'welcome' as const,
+      illustrationType: "welcome" as const,
     },
     {
       title: Strings.onboarding.screens[1].title,
       subtitle: Strings.onboarding.screens[1].subtitle,
       buttonText: Strings.onboarding.screens[1].buttonText,
-      illustrationType: 'management' as const,
+      illustrationType: "management" as const,
     },
     {
       title: Strings.onboarding.screens[2].title,
       subtitle: Strings.onboarding.screens[2].subtitle,
       buttonText: Strings.onboarding.screens[2].buttonText,
-      illustrationType: 'tech' as const,
+      illustrationType: "tech" as const,
     },
     {
       title: Strings.onboarding.screens[3].title,
       subtitle: Strings.onboarding.screens[3].subtitle,
       buttonText: Strings.onboarding.screens[3].buttonText,
-      illustrationType: 'companion' as const,
+      illustrationType: "companion" as const,
     },
   ];
 
   const goToGetStarted = () => {
-    router.push('/(public)/get-started' as any);
+    router.push("/(public)/get-started" as any);
   };
 
   const handleNext = () => {
@@ -82,8 +83,10 @@ export default function OnboardingCarouselScreen() {
       translateX.value = context.startX + event.translationX;
     },
     onEnd: (event) => {
-      const shouldMoveToNext = event.translationX < -width / 3 && currentIndex < TOTAL_SCREENS - 1;
-      const shouldMoveToPrev = event.translationX > width / 3 && currentIndex > 0;
+      const shouldMoveToNext =
+        event.translationX < -width / 3 && currentIndex < TOTAL_SCREENS - 1;
+      const shouldMoveToPrev =
+        event.translationX > width / 3 && currentIndex > 0;
 
       if (shouldMoveToNext) {
         const nextIndex = currentIndex + 1;
@@ -109,14 +112,14 @@ export default function OnboardingCarouselScreen() {
   const showSkip = currentIndex < TOTAL_SCREENS - 1;
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
+      <ThemedView style={styles.container}>
         {/* Fixed Header with Skip Button */}
         {showSkip && (
           <View style={styles.header}>
             <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
               <ThemedText style={[styles.skipText, { color: textSecondaryColor }]}>
-                Skip
+                {Strings.common.skip}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -132,6 +135,7 @@ export default function OnboardingCarouselScreen() {
                   title={screen.title}
                   subtitle={screen.subtitle}
                   illustrationType={screen.illustrationType}
+                  style={{ width }}
                 />
               ))}
             </Animated.View>
@@ -155,8 +159,8 @@ export default function OnboardingCarouselScreen() {
             style={styles.actionButton}
           />
         </View>
-      </SafeAreaView>
-    </ThemedView>
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 
@@ -166,14 +170,14 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: 24,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     paddingTop: 16,
     paddingBottom: 8,
     minHeight: 48,
+    paddingHorizontal: 24,
   },
   skipButton: {
     paddingHorizontal: 16,
@@ -181,27 +185,31 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   contentArea: {
     flex: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
+    width: width,
+    justifyContent: "center",
   },
   contentContainer: {
-    flex: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     width: width * TOTAL_SCREENS,
   },
   bottomSection: {
     paddingBottom: 32,
     minHeight: 120,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
+    paddingHorizontal: 24,
   },
   progress: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   actionButton: {
-    width: '100%',
+    width: "100%",
     marginHorizontal: 0,
+    height: 56,
+    borderRadius: 28,
   },
-}); 
+});
