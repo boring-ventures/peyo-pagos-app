@@ -1,66 +1,109 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Formik } from 'formik';
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import * as Yup from 'yup';
+import { BiometricLoginBottomSheet } from "@/app/components/auth/BiometricLoginBottomSheet";
+import { FormField } from "@/app/components/FormField";
+import { ThemedButton } from "@/app/components/ThemedButton";
+import { ThemedText } from "@/app/components/ThemedText";
+import { ThemedView } from "@/app/components/ThemedView";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import { Formik } from "formik";
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import * as Yup from "yup";
 
-import { useAuth } from '@/app/components/AuthContext';
-import { FormField } from '@/app/components/FormField';
-import { SocialAuthButton } from '@/app/components/SocialAuthButton';
-import { ThemedButton } from '@/app/components/ThemedButton';
-import { ThemedText } from '@/app/components/ThemedText';
-import { ThemedView } from '@/app/components/ThemedView';
-import { Strings } from '@/app/constants/Strings';
-import { useThemeColor } from '@/app/hooks/useThemeColor';
+import { useAuth } from "@/app/components/AuthContext";
+import { Strings } from "@/app/constants/Strings";
+import { useThemeColor } from "@/app/hooks/useThemeColor";
 
 // Validation schema with Yup
 const LoginSchema = Yup.object().shape({
-  email: Yup.string()
-    .email(Strings.auth.validation.emailInvalid)
-    .required(Strings.auth.validation.emailRequired),
+  email: Yup.string().email("Invalid email").required("Email is required"),
   password: Yup.string()
-    .min(6, Strings.auth.validation.passwordMin)
-    .required(Strings.auth.validation.passwordRequired),
+    .min(6, "Password must be at least 6 characters")
+    .required("Password is required"),
 });
+
+const BIOMETRIC_ENABLED_KEY = "@biometric_enabled_mock";
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
-  const iconColor = useThemeColor({}, 'icon');
-  const backgroundColor = useThemeColor({}, 'background');
-  const tintColor = useThemeColor({}, 'tint');
-  const textSecondaryColor = useThemeColor({}, 'textSecondary');
+  const iconColor = useThemeColor({}, "icon");
+  const backgroundColor = useThemeColor({}, "background");
+  const tintColor = useThemeColor({}, "tint");
+  const textSecondaryColor = useThemeColor({}, "textSecondary");
+  const cardColor = useThemeColor({}, "card");
   const [isLoading, setIsLoading] = useState(false);
+  const [isBiometricSheetVisible, setBiometricSheetVisible] = useState(false);
+  const [isBiometricAvailable, setBiometricAvailable] = useState(false);
+
+  // Mock check for biometrics
+  useEffect(() => {
+    const checkBiometricStatus = async () => {
+      const isEnabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+      // In a real app, you'd also check hardware compatibility
+      setBiometricAvailable(isEnabled === "true");
+    };
+    checkBiometricStatus();
+  }, []);
 
   const handleLogin = async (values: { email: string; password: string }) => {
     setIsLoading(true);
-    
+
     try {
       const success = await login(values.email, values.password);
-      
+
       if (!success) {
         Alert.alert(Strings.common.error, Strings.auth.errors.loginFailed);
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       Alert.alert(Strings.common.error, Strings.auth.errors.loginFailed);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleBiometricLogin = () => {
+    setBiometricSheetVisible(false);
+    setIsLoading(true);
+    // Mock biometric auth logic
+    setTimeout(() => {
+      setIsLoading(false);
+      Alert.alert("Biometric Login Successful", "Welcome back!", [
+        { text: "OK", onPress: () => router.replace("/(private)/enter-pin") },
+      ]);
+    }, 1000);
+  };
+
+  // Mock function to enable biometrics for testing
+  const enableBiometricsForTesting = async () => {
+    await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, "true");
+    setBiometricAvailable(true);
+    Alert.alert(
+      "Biometrics Enabled",
+      "Biometric login option is now available for testing."
+    );
+  };
+
   const handleForgotPassword = () => {
-    router.push('/(public)/forgot-password' as any);
+    router.push("/(public)/forgot-password" as any);
   };
 
   const handleGoogleLogin = () => {
     // TODO: Implement Google OAuth
-    Alert.alert('Google Login', 'Google authentication coming soon.');
+    Alert.alert("Google Login", "Google authentication coming soon.");
   };
 
   const handleRegister = () => {
-    router.push('/(public)/register' as any);
+    router.push("/(public)/register" as any);
   };
 
   const handleBack = () => {
@@ -68,97 +111,81 @@ export default function LoginScreen() {
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: '#1A2B42' }]}>
-      <View style={styles.header}>
+    <ThemedView style={[styles.container, { backgroundColor: "#1A2B42" }]}>
+      <SafeAreaView style={styles.safeArea}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={"#fff"} />
         </TouchableOpacity>
-      </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={[styles.cardContainer, { backgroundColor }]}>
-          <View style={styles.titleContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[styles.card, { backgroundColor: cardColor }]}>
             <ThemedText type="title" style={styles.title}>
-              {Strings.auth.login.title}
+              Bienvenido de nuevo
             </ThemedText>
-            <ThemedText style={[styles.subtitle, { color: textSecondaryColor }]}>
-              {Strings.auth.login.subtitle}
+            <ThemedText style={styles.subtitle}>
+              Inicia sesión en tu cuenta
             </ThemedText>
-          </View>
-          
-          <Formik
-            initialValues={{ email: '', password: '' }}
-            validationSchema={LoginSchema}
-            onSubmit={handleLogin}
-          >
-            {(formikProps) => (
-              <View style={styles.formContainer}>
-                <FormField
-                  label="Email"
-                  formikKey="email"
-                  formikProps={formikProps}
-                  placeholder={Strings.auth.login.emailPlaceholder}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  leftIcon={<Ionicons name="mail-outline" size={20} color={iconColor} />}
-                  editable={!isLoading}
-                />
-                
-                <FormField
-                  label="Password"
-                  formikKey="password"
-                  formikProps={formikProps}
-                  placeholder={Strings.auth.login.passwordPlaceholder}
-                  secureTextEntry={true}
-                  leftIcon={<Ionicons name="lock-closed-outline" size={20} color={iconColor} />}
-                  editable={!isLoading}
-                />
-                
-                <TouchableOpacity 
-                  style={styles.forgotPasswordContainer} 
-                  onPress={handleForgotPassword}
-                  disabled={isLoading}
-                >
-                  <ThemedText style={[styles.forgotPasswordText, { color: tintColor }]}>
-                    {Strings.auth.login.forgotPassword}
-                  </ThemedText>
-                </TouchableOpacity>
-                
-                <ThemedButton
-                  title={Strings.auth.login.loginButton}
-                  onPress={() => formikProps.handleSubmit()}
-                  loading={isLoading}
-                  disabled={isLoading || !formikProps.isValid || formikProps.isSubmitting}
-                  style={styles.loginButton}
-                  size="large"
-                />
 
-                <SocialAuthButton
-                  provider="google"
-                  onPress={handleGoogleLogin}
-                  disabled={isLoading}
-                  style={styles.googleButton}
-                />
-              </View>
-            )}
-          </Formik>
-          
-          <View style={styles.registerContainer}>
-            <ThemedText style={{ color: textSecondaryColor }}>
-              {Strings.auth.login.noAccount} 
-            </ThemedText>
-            <TouchableOpacity onPress={handleRegister} disabled={isLoading}>
-              <ThemedText style={[styles.registerLink, { color: tintColor }]}>
-                {Strings.auth.login.registerAction}
-              </ThemedText>
-            </TouchableOpacity>
+            <Formik
+              initialValues={{ email: "", password: "" }}
+              validationSchema={LoginSchema}
+              onSubmit={handleLogin}
+            >
+              {(formikProps) => (
+                <View style={styles.formContainer}>
+                  <FormField
+                    formikProps={formikProps}
+                    formikKey="email"
+                    label="Correo electrónico"
+                    placeholder="Enter Address"
+                    keyboardType="email-address"
+                  />
+
+                  <FormField
+                    formikProps={formikProps}
+                    formikKey="password"
+                    label="Contraseña"
+                    placeholder="Introduce tu contraseña"
+                    secureTextEntry
+                  />
+
+                  <TouchableOpacity
+                    onPress={() => router.push("/(public)/forgot-password")}
+                    style={styles.forgotPassword}
+                  >
+                    <ThemedText type="link">Olvidé mi contraseña</ThemedText>
+                  </TouchableOpacity>
+
+                  <ThemedButton
+                    title="Iniciar sesión"
+                    type="primary"
+                    size="large"
+                    onPress={() => formikProps.handleSubmit()}
+                    loading={isLoading}
+                    disabled={isLoading || !formikProps.isValid}
+                    style={styles.button}
+                  />
+                </View>
+              )}
+            </Formik>
+            <View style={styles.registerContainer}>
+              <ThemedText>¿No tienes cuenta? </ThemedText>
+              <TouchableOpacity onPress={handleRegister}>
+                <ThemedText type="link">Regístrate</ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
+      <BiometricLoginBottomSheet
+        isVisible={isBiometricSheetVisible}
+        onClose={() => setBiometricSheetVisible(false)}
+        onAuthenticate={handleBiometricLogin}
+      />
     </ThemedView>
   );
 }
@@ -167,80 +194,49 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+  safeArea: {
+    flex: 1,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: "absolute",
+    top: 50,
+    left: 20,
+    zIndex: 10,
+    padding: 8,
   },
   scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 40,
-  },
-  cardContainer: {
-    borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: 60,
     paddingBottom: 40,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-    minHeight: 480,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    flexGrow: 1,
   },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
+  card: {
+    borderRadius: 24,
+    padding: 24,
   },
   title: {
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
-    fontSize: 24,
-    fontWeight: '600',
   },
   subtitle: {
-    textAlign: 'center',
-    fontSize: 16,
+    textAlign: "center",
+    opacity: 0.7,
+    marginBottom: 32,
   },
   formContainer: {
-    width: '100%',
-    marginBottom: 24,
+    gap: 16,
   },
-  forgotPasswordContainer: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
+  forgotPassword: {
+    alignSelf: "flex-end",
   },
-  forgotPasswordText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  loginButton: {
-    marginBottom: 16,
-    width: '100%',
-  },
-  googleButton: {
-    marginBottom: 24,
+  button: {
+    marginTop: 8,
   },
   registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 24,
   },
-  registerLink: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 4,
-  },
-}); 
+});

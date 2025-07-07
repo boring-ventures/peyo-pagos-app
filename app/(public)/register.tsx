@@ -4,17 +4,21 @@ import { Formik } from "formik";
 import React, { useState } from "react";
 import {
   Alert,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import * as Yup from "yup";
 
+import { TermsAndConditionsCheckbox } from "@/app/components/auth/TermsAndConditionsCheckbox";
 import { useAuth } from "@/app/components/AuthContext";
 import { FormField } from "@/app/components/FormField";
-import { SocialAuthButton } from "@/app/components/SocialAuthButton";
+import CountrySelector, {
+  Country,
+  countries,
+} from "@/app/components/shared/CountrySelector";
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
@@ -35,9 +39,12 @@ const RegisterSchema = Yup.object().shape({
   password: Yup.string()
     .min(6, Strings.auth.validation.passwordMin)
     .required(Strings.auth.validation.passwordRequired),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref("password")], "Passwords must match")
+    .required("Password confirmation is required"),
   acceptTerms: Yup.boolean()
-    .required(Strings.auth.validation.termsRequired)
-    .oneOf([true], Strings.auth.validation.termsRequired),
+    .oneOf([true], "You must accept the terms and conditions")
+    .required("You must accept the terms and conditions"),
 });
 
 export default function RegisterScreen() {
@@ -49,12 +56,15 @@ export default function RegisterScreen() {
   const textSecondaryColor = useThemeColor({}, "textSecondary");
   const borderColor = useThemeColor({}, "border");
   const errorColor = useThemeColor({}, "error");
+  const cardColor = useThemeColor({}, "card");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]);
 
   const handleRegister = async (values: {
     email: string;
     phone: string;
     password: string;
+    confirmPassword: string;
     acceptTerms: boolean;
   }) => {
     setIsLoading(true);
@@ -62,13 +72,12 @@ export default function RegisterScreen() {
     try {
       // TODO: Send OTP to user's email here first
       // await authService.sendOTP(values.email, 'signup');
-      
+
       // Navigate to OTP verification with email parameter
       router.push({
         pathname: "/(public)/otp-verification",
-        params: { email: values.email }
+        params: { email: values.email },
       } as any);
-      
     } catch (error) {
       console.error("Register error:", error);
       Alert.alert(Strings.common.error, Strings.auth.errors.registerFailed);
@@ -106,187 +115,160 @@ export default function RegisterScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: "#1A2B42" }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={[styles.cardContainer, { backgroundColor }]}>
-          <View style={styles.titleContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[styles.card, { backgroundColor: cardColor }]}>
             <ThemedText type="title" style={styles.title}>
               {Strings.auth.register.title}
             </ThemedText>
-            <ThemedText
-              style={[styles.subtitle, { color: textSecondaryColor }]}
-            >
+
+            <ThemedText style={styles.subtitle}>
               {Strings.auth.register.subtitle}
             </ThemedText>
-          </View>
 
-          <Formik
-            initialValues={{
-              email: "",
-              phone: "",
-              password: "",
-              acceptTerms: false,
-            }}
-            validationSchema={RegisterSchema}
-            onSubmit={handleRegister}
-          >
-            {(formikProps) => (
-              <View style={styles.formContainer}>
-                <FormField
-                  label="Email"
-                  formikKey="email"
-                  formikProps={formikProps}
-                  placeholder={Strings.auth.register.emailPlaceholder}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  leftIcon={
-                    <Ionicons name="mail-outline" size={20} color={iconColor} />
-                  }
-                  editable={!isLoading}
-                />
-
-                <FormField
-                  label="Phone Number"
-                  formikKey="phone"
-                  formikProps={formikProps}
-                  placeholder={Strings.auth.register.phonePlaceholder}
-                  keyboardType="phone-pad"
-                  leftIcon={
-                    <Ionicons name="call-outline" size={20} color={iconColor} />
-                  }
-                  editable={!isLoading}
-                />
-
-                <FormField
-                  label="Password"
-                  formikKey="password"
-                  formikProps={formikProps}
-                  placeholder={Strings.auth.register.passwordPlaceholder}
-                  secureTextEntry={true}
-                  leftIcon={
-                    <Ionicons
-                      name="lock-closed-outline"
-                      size={20}
-                      color={iconColor}
-                    />
-                  }
-                  editable={!isLoading}
-                />
-
-                {/* Terms & Conditions Checkbox */}
-                <View style={styles.termsContainer}>
-                  <TouchableOpacity
-                    style={[
-                      styles.checkbox,
-                      {
-                        borderColor: formikProps.values.acceptTerms
-                          ? tintColor
-                          : borderColor,
-                        backgroundColor: formikProps.values.acceptTerms
-                          ? tintColor
-                          : "transparent",
-                      },
-                    ]}
-                    onPress={() =>
-                      formikProps.setFieldValue(
-                        "acceptTerms",
-                        !formikProps.values.acceptTerms
-                      )
+            <Formik
+              initialValues={{
+                email: "",
+                phone: "",
+                password: "",
+                confirmPassword: "",
+                acceptTerms: false,
+              }}
+              validationSchema={RegisterSchema}
+              onSubmit={handleRegister}
+            >
+              {(formikProps) => (
+                <View style={styles.formContainer}>
+                  <FormField
+                    label="Email"
+                    formikKey="email"
+                    formikProps={formikProps}
+                    placeholder={Strings.auth.register.emailPlaceholder}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    leftIcon={
+                      <Ionicons
+                        name="mail-outline"
+                        size={20}
+                        color={iconColor}
+                      />
                     }
-                    disabled={isLoading}
-                  >
-                    {formikProps.values.acceptTerms && (
-                      <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                    )}
-                  </TouchableOpacity>
+                    editable={!isLoading}
+                  />
 
-                  <View style={styles.termsTextContainer}>
-                    <Text
-                      style={[styles.termsText, { color: textSecondaryColor }]}
-                    >
-                      {Strings.auth.register.termsText}{" "}
-                    </Text>
-                    <TouchableOpacity onPress={handleTermsPress}>
-                      <Text style={[styles.termsLink, { color: tintColor }]}>
-                        {Strings.auth.register.termsLink}
-                      </Text>
-                    </TouchableOpacity>
-                    <Text
-                      style={[styles.termsText, { color: textSecondaryColor }]}
-                    >
-                      {" "}
-                      &{" "}
-                    </Text>
-                    <TouchableOpacity onPress={handlePrivacyPress}>
-                      <Text style={[styles.termsLink, { color: tintColor }]}>
-                        {Strings.auth.register.privacyLink}
-                      </Text>
-                    </TouchableOpacity>
+                  <View style={styles.phoneInputContainer}>
+                    <View style={styles.countrySelector}>
+                      <CountrySelector
+                        selectedCountry={selectedCountry}
+                        onSelectCountry={setSelectedCountry}
+                      />
+                    </View>
+                    <View style={styles.phoneInput}>
+                      <FormField
+                        label=""
+                        formikKey="phone"
+                        formikProps={formikProps}
+                        placeholder={Strings.auth.register.phonePlaceholder}
+                        keyboardType="phone-pad"
+                        leftIcon={
+                          <Ionicons
+                            name="call-outline"
+                            size={20}
+                            color={iconColor}
+                          />
+                        }
+                        editable={!isLoading}
+                      />
+                    </View>
                   </View>
+
+                  <FormField
+                    label="Password"
+                    formikKey="password"
+                    formikProps={formikProps}
+                    placeholder={Strings.auth.register.passwordPlaceholder}
+                    secureTextEntry={true}
+                    leftIcon={
+                      <Ionicons
+                        name="lock-closed-outline"
+                        size={20}
+                        color={iconColor}
+                      />
+                    }
+                    editable={!isLoading}
+                  />
+
+                  <FormField
+                    label="Confirm Password"
+                    formikKey="confirmPassword"
+                    formikProps={formikProps}
+                    placeholder={
+                      Strings.auth.register.confirmPasswordPlaceholder
+                    }
+                    secureTextEntry={true}
+                    leftIcon={
+                      <Ionicons
+                        name="lock-closed-outline"
+                        size={20}
+                        color={iconColor}
+                      />
+                    }
+                    editable={!isLoading}
+                  />
+
+                  <TermsAndConditionsCheckbox
+                    formikProps={formikProps}
+                    formikKey="acceptTerms"
+                  />
+
+                  <ThemedButton
+                    title={Strings.auth.register.registerButton}
+                    onPress={() => formikProps.handleSubmit()}
+                    loading={isLoading}
+                    disabled={
+                      isLoading ||
+                      !formikProps.isValid ||
+                      formikProps.isSubmitting
+                    }
+                    style={styles.registerButton}
+                    size="large"
+                  />
                 </View>
+              )}
+            </Formik>
 
-                {formikProps.touched.acceptTerms &&
-                  formikProps.errors.acceptTerms && (
-                    <Text
-                      style={[
-                        styles.errorText,
-                        { color: errorColor },
-                      ]}
-                    >
-                      {formikProps.errors.acceptTerms.toString()}
-                    </Text>
-                  )}
-
-                <ThemedButton
-                  title={Strings.auth.register.registerButton}
-                  onPress={() => formikProps.handleSubmit()}
-                  loading={isLoading}
-                  disabled={
-                    isLoading ||
-                    !formikProps.isValid ||
-                    formikProps.isSubmitting
-                  }
-                  style={styles.registerButton}
-                  size="large"
-                />
-
-                <SocialAuthButton
-                  provider="google"
-                  onPress={handleGoogleSignup}
-                  disabled={isLoading}
-                  style={styles.googleButton}
-                />
-              </View>
-            )}
-          </Formik>
-
-          <View style={styles.loginContainer}>
-            <ThemedText style={{ color: textSecondaryColor }}>
-              {Strings.auth.register.hasAccount}
-            </ThemedText>
-            <TouchableOpacity onPress={handleLogin} disabled={isLoading}>
-              <ThemedText style={[styles.loginLink, { color: tintColor }]}>
-                {Strings.auth.register.loginAction}
+            <View style={styles.loginContainer}>
+              <ThemedText style={{ color: textSecondaryColor }}>
+                {Strings.auth.register.hasAccount}
               </ThemedText>
-            </TouchableOpacity>
+              <TouchableOpacity onPress={handleLogin} disabled={isLoading}>
+                <ThemedText style={[styles.loginLink, { color: tintColor }]}>
+                  {Strings.auth.register.loginAction}
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  safeArea: {
     flex: 1,
   },
   header: {
@@ -303,31 +285,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-  },
-  illustrationContainer: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
-  cardContainer: {
-    borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 32,
     paddingBottom: 40,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-    minHeight: 520,
+    paddingHorizontal: 24,
   },
-  titleContainer: {
-    alignItems: "center",
-    marginBottom: 32,
+  card: {
+    borderRadius: 24,
+    padding: 24,
   },
   title: {
     textAlign: "center",
@@ -337,46 +300,22 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: "center",
-    fontSize: 16,
+    marginBottom: 24,
   },
   formContainer: {
     width: "100%",
     marginBottom: 24,
   },
-  termsContainer: {
+  phoneInputContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 24,
+    gap: 8,
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    marginRight: 12,
-    marginTop: 2,
-    justifyContent: "center",
-    alignItems: "center",
+  countrySelector: {
+    flex: 2,
   },
-  termsTextContainer: {
-    flex: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-  },
-  termsText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  termsLink: {
-    fontSize: 14,
-    fontWeight: "500",
-    textDecorationLine: "underline",
-  },
-  errorText: {
-    fontSize: 12,
-    marginBottom: 16,
-    marginTop: -8,
+  phoneInput: {
+    flex: 3,
   },
   registerButton: {
     marginBottom: 16,

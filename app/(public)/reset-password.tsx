@@ -2,7 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import * as Yup from 'yup';
 
 import { FormField } from '@/app/components/FormField';
@@ -15,11 +22,11 @@ import { supabase } from '@/app/services/supabaseClient';
 
 const ResetPasswordSchema = Yup.object().shape({
   newPassword: Yup.string()
-    .min(6, Strings.auth.validation.passwordMin)
-    .required(Strings.auth.validation.passwordRequired),
+    .min(6, 'Password must be at least 6 characters')
+    .required('Password is required'),
   confirmPassword: Yup.string()
-    .required(Strings.auth.validation.confirmPasswordRequired)
-    .oneOf([Yup.ref('newPassword')], Strings.auth.validation.passwordsNoMatch),
+    .oneOf([Yup.ref('newPassword')], 'Passwords must match')
+    .required('Password confirmation is required'),
 });
 
 export default function ResetPasswordScreen() {
@@ -90,23 +97,23 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: '#1A2B42' }]}>
-      <View style={styles.header}>
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={'#fff'} />
         </TouchableOpacity>
-      </View>
 
-      <View style={styles.content}>
-        <View style={[styles.cardContainer, { backgroundColor }]}>
-          <View style={styles.titleContainer}>
-            <ThemedText type="title" style={styles.title}>
-              {Strings.auth.resetPassword.title}
-            </ThemedText>
-            <ThemedText style={[styles.subtitle, { color: textSecondaryColor }]}>
-              {Strings.auth.resetPassword.subtitle}
-            </ThemedText>
-          </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <ThemedText type="title" style={styles.title}>
+            Nueva contraseña
+          </ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Crea tu contraseña
+          </ThemedText>
 
           <Formik
             initialValues={{ newPassword: '', confirmPassword: '' }}
@@ -116,38 +123,35 @@ export default function ResetPasswordScreen() {
             {(formikProps) => (
               <View style={styles.formContainer}>
                 <FormField
-                  label="New Password"
-                  formikKey="newPassword"
                   formikProps={formikProps}
-                  placeholder={Strings.auth.resetPassword.newPasswordPlaceholder}
-                  secureTextEntry={true}
-                  leftIcon={<Ionicons name="lock-closed-outline" size={20} color={iconColor} />}
-                  editable={!isLoading}
+                  formikKey="newPassword"
+                  label="Nueva contraseña"
+                  placeholder="Introduce tu contraseña"
+                  secureTextEntry
                 />
 
                 <FormField
-                  label="Confirm Password"
-                  formikKey="confirmPassword"
                   formikProps={formikProps}
-                  placeholder={Strings.auth.resetPassword.confirmPasswordPlaceholder}
-                  secureTextEntry={true}
-                  leftIcon={<Ionicons name="lock-closed-outline" size={20} color={iconColor} />}
-                  editable={!isLoading}
+                  formikKey="confirmPassword"
+                  label="Confirmar contraseña"
+                  placeholder="Introduce tu contraseña nuevamente"
+                  secureTextEntry
                 />
 
                 <ThemedButton
-                  title={Strings.auth.resetPassword.confirmButton}
+                  title="Confirmar contraseña"
+                  type="primary"
+                  size="large"
                   onPress={() => formikProps.handleSubmit()}
                   loading={isLoading}
-                  disabled={isLoading || !formikProps.isValid || formikProps.isSubmitting}
-                  style={styles.confirmButton}
-                  size="large"
+                  disabled={isLoading || !formikProps.isValid}
+                  style={styles.button}
                 />
               </View>
             )}
           </Formik>
-        </View>
-      </View>
+        </ScrollView>
+      </SafeAreaView>
     </ThemedView>
   );
 }
@@ -156,59 +160,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+  safeArea: {
+    flex: 1,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+    padding: 8,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 40,
-  },
-  cardContainer: {
-    borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 32,
+  scrollContent: {
+    paddingTop: 100,
     paddingBottom: 40,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-    minHeight: 450,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
+    paddingHorizontal: 24,
   },
   title: {
     textAlign: 'center',
     marginBottom: 8,
-    fontSize: 24,
-    fontWeight: '600',
   },
   subtitle: {
     textAlign: 'center',
-    fontSize: 16,
-    lineHeight: 24,
+    opacity: 0.7,
+    marginBottom: 32,
   },
   formContainer: {
-    width: '100%',
+    gap: 16,
   },
-  confirmButton: {
-    marginTop: 32,
-    width: '100%',
+  button: {
+    marginTop: 8,
   },
 }); 

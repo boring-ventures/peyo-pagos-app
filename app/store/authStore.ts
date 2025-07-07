@@ -2,6 +2,7 @@ import { ImageFile } from "@/app/components/ImagePickerModal";
 import { authService } from "@/app/services/authService";
 import { User } from "@supabase/supabase-js";
 import { create } from "zustand";
+import { VerificationStatus } from "../types/KycTypes";
 
 type ProfileState = {
   first_name: string;
@@ -17,6 +18,7 @@ type AuthState = {
   user: User | null;
   profile: ProfileState | null;
   error: string | null;
+  kycStatus: VerificationStatus;
 
   // Acciones
   initialize: () => Promise<void>;
@@ -32,6 +34,7 @@ type AuthState = {
   clearError: () => void;
   restoreSession: () => Promise<boolean>;
   updateProfile: (profileData: ProfileState) => void;
+  updateKycStatus: (status: VerificationStatus) => void;
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -40,6 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
   error: null,
+  kycStatus: 'pending',
 
   initialize: async () => {
     set({ isLoading: true });
@@ -231,6 +235,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       profile: profileData
     }));
   },
+
+  updateKycStatus: (status: VerificationStatus) => set({ kycStatus: status }),
 }));
 
 export default useAuthStore;

@@ -6,12 +6,14 @@ export interface OTPInputProps {
   value: string;
   length?: number;
   error?: boolean;
+  isPin?: boolean;
 }
 
 export const OTPInput: React.FC<OTPInputProps> = ({
   value,
   length = 4,
   error = false,
+  isPin = false,
 }) => {
   const textColor = useThemeColor({}, 'text');
   const backgroundColor = useThemeColor({}, 'background');
@@ -53,12 +55,20 @@ export const OTPInput: React.FC<OTPInputProps> = ({
     ];
   };
 
+  const renderDigit = (digit: string, index: number) => {
+    if (!isPin) {
+      return digit || '';
+    }
+    // For PIN, show a dot if there is a value
+    return digit ? '•' : '';
+  }
+
   return (
     <View style={styles.container}>
       {Array.from({ length }, (_, index) => (
         <View key={index} style={getDigitStyle(index)}>
           <Text style={getDigitTextStyle(index)}>
-            {digits[index] || ''}
+            {renderDigit(digits[index], index)}
           </Text>
         </View>
       ))}
