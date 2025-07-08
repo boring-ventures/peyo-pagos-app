@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
   },
   content: {
     flex: 1,
@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     paddingBottom: 32,
+    paddingHorizontal: 16,
     gap: 16,
   },
   primaryButton: {

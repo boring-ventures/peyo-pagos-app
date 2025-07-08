@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useField } from 'formik';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../ThemedText';
 
 interface DatePickerFieldProps {
@@ -14,6 +14,7 @@ interface DatePickerFieldProps {
 const DatePickerField: React.FC<DatePickerFieldProps> = ({ name, label }) => {
   const [field, meta, helpers] = useField(name);
   const [show, setShow] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date());
   const { setValue } = helpers;
 
   const iconColor = useThemeColor({}, 'icon');
@@ -23,14 +24,16 @@ const DatePickerField: React.FC<DatePickerFieldProps> = ({ name, label }) => {
   const errorColor = useThemeColor({}, 'error');
 
   const onChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    // This is only used for Android now, iOS uses modal approach
     const currentDate = selectedDate || new Date(field.value);
-    setShow(Platform.OS === 'ios');
+    setShow(false);
     if (currentDate) {
       setValue(currentDate.toISOString().split('T')[0]);
     }
   };
 
   const showDatepicker = () => {
+    setTempDate(field.value ? new Date(field.value) : new Date());
     setShow(true);
   };
 
@@ -48,15 +51,53 @@ const DatePickerField: React.FC<DatePickerFieldProps> = ({ name, label }) => {
         </ThemedText>
         <Ionicons name="calendar-outline" size={24} color={iconColor} />
       </TouchableOpacity>
-      {show && (
-        <DateTimePicker
-          testID="dateTimePicker"
-          value={dateValue}
-          mode="date"
-          display="default"
-          onChange={onChange}
-          maximumDate={new Date()}
-        />
+      {Platform.OS === 'ios' ? (
+        <Modal
+          visible={show}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShow(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
+                             <View style={styles.modalHeader}>
+                 <TouchableOpacity onPress={() => setShow(false)}>
+                   <ThemedText style={styles.modalButton}>Cancelar</ThemedText>
+                 </TouchableOpacity>
+                 <TouchableOpacity onPress={() => {
+                   setValue(tempDate.toISOString().split('T')[0]);
+                   setShow(false);
+                 }}>
+                   <ThemedText style={styles.modalButton}>Confirmar</ThemedText>
+                 </TouchableOpacity>
+               </View>
+               <DateTimePicker
+                 testID="dateTimePicker"
+                 value={tempDate}
+                 mode="date"
+                 display="spinner"
+                 onChange={(event, date) => {
+                   if (date) {
+                     setTempDate(date);
+                   }
+                 }}
+                 maximumDate={new Date()}
+                 style={styles.iosDatePicker}
+               />
+            </View>
+          </View>
+        </Modal>
+      ) : (
+        show && (
+          <DateTimePicker
+            testID="dateTimePicker"
+            value={dateValue}
+            mode="date"
+            display="default"
+            onChange={onChange}
+            maximumDate={new Date()}
+          />
+        )
       )}
       {meta.touched && meta.error && (
         <ThemedText style={[styles.errorText, { color: errorColor }]}>{meta.error}</ThemedText>
@@ -87,6 +128,33 @@ const styles = StyleSheet.create({
   errorText: {
     marginTop: 4,
     fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  modalButton: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  iosDatePicker: {
+    height: 200,
   },
 });
 
