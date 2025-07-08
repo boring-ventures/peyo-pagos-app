@@ -1,10 +1,15 @@
 import { useAuth } from "@/app/components/AuthContext";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
+import { sessionService } from "@/app/services/sessionService";
+import useSettingsStore from "@/app/store/settingsStore";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, useRouter } from "expo-router";
+import { useEffect } from "react";
 
 export default function PrivateLayout() {
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
+  const { pinEnabled } = useSettingsStore();
   const tabIconColor = useThemeColor({}, "tabIconDefault");
   const tabIconSelectedColor = useThemeColor({}, "tabIconSelected");
   const backgroundColor = useThemeColor({}, "background");
@@ -14,6 +19,20 @@ export default function PrivateLayout() {
   if (!isAuthenticated) {
     return <Redirect href="/(public)/onboarding/welcome" />;
   }
+
+  // Setup session service for security monitoring
+  useEffect(() => {
+    if (pinEnabled) {
+      sessionService.setInactivityCallback(() => {
+        router.replace('/(private)/enter-pin');
+      });
+      sessionService.startInactivityTimer();
+    }
+
+    return () => {
+      sessionService.cleanup();
+    };
+  }, [pinEnabled, router]);
 
   return (
     <Tabs
@@ -75,6 +94,57 @@ export default function PrivateLayout() {
         name="edit-profile"
         options={{
           headerTitle: "Editar Perfil",
+          href: null,
+          tabBarStyle: { display: "none" },
+          headerStyle: {
+            backgroundColor,
+            borderBottomColor: borderTopColor,
+            borderBottomWidth: 0.5,
+          },
+          headerTintColor: tabIconSelectedColor,
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+        }}
+      />
+      <Tabs.Screen
+        name="security-settings"
+        options={{
+          headerTitle: "Seguridad",
+          href: null,
+          tabBarStyle: { display: "none" },
+          headerStyle: {
+            backgroundColor,
+            borderBottomColor: borderTopColor,
+            borderBottomWidth: 0.5,
+          },
+          headerTintColor: tabIconSelectedColor,
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+        }}
+      />
+      <Tabs.Screen
+        name="change-pin"
+        options={{
+          headerTitle: "Cambiar PIN",
+          href: null,
+          tabBarStyle: { display: "none" },
+          headerStyle: {
+            backgroundColor,
+            borderBottomColor: borderTopColor,
+            borderBottomWidth: 0.5,
+          },
+          headerTintColor: tabIconSelectedColor,
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+        }}
+      />
+      <Tabs.Screen
+        name="enter-pin"
+        options={{
+          headerTitle: "",
           href: null,
           tabBarStyle: { display: "none" },
           headerStyle: {

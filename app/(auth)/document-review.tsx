@@ -16,7 +16,7 @@ export default function VerificationSuccessScreen() {
   );
 
   const handleContinue = () => {
-    router.replace('/(auth)/biometric-setup');
+    router.replace('/(auth)/kyc-success');
   };
 
   return (

@@ -4,23 +4,24 @@ import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { Formik } from "formik";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import * as Yup from "yup";
 
 import { useAuth } from "@/app/components/AuthContext";
 import { Strings } from "@/app/constants/Strings";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
+import { biometricService } from "@/app/services/biometricService";
+import useSettingsStore from "@/app/store/settingsStore";
 
 // Validation schema with Yup
 const LoginSchema = Yup.object().shape({
@@ -30,8 +31,6 @@ const LoginSchema = Yup.object().shape({
     .required("Password is required"),
 });
 
-const BIOMETRIC_ENABLED_KEY = "@biometric_enabled_mock";
-
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
@@ -40,28 +39,45 @@ export default function LoginScreen() {
   const tintColor = useThemeColor({}, "tint");
   const textSecondaryColor = useThemeColor({}, "textSecondary");
   const cardColor = useThemeColor({}, "card");
+  
+  const { biometricEnabled, pinEnabled } = useSettingsStore();
+  
   const [isLoading, setIsLoading] = useState(false);
   const [isBiometricSheetVisible, setBiometricSheetVisible] = useState(false);
   const [isBiometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState<'none' | 'fingerprint' | 'facial' | 'iris'>('none');
 
-  // Mock check for biometrics
   useEffect(() => {
     const checkBiometricStatus = async () => {
-      const isEnabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
-      // In a real app, you'd also check hardware compatibility
-      setBiometricAvailable(isEnabled === "true");
+      const isAvailable = await biometricService.isBiometricAvailable();
+      const type = await biometricService.getBiometricType();
+      setBiometricAvailable(isAvailable && biometricEnabled);
+      setBiometricType(type);
     };
     checkBiometricStatus();
-  }, []);
+  }, [biometricEnabled]);
 
   const handleLogin = async (values: { email: string; password: string }) => {
     setIsLoading(true);
 
     try {
+      // Mock login - accept any email/password combination with 6+ chars
+      if (values.email.includes('@') && values.password.length >= 6) {
+        // Simulate async login
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
       const success = await login(values.email, values.password);
 
-      if (!success) {
-        Alert.alert(Strings.common.error, Strings.auth.errors.loginFailed);
+        if (success) {
+          // Check if PIN is required after successful login
+          if (pinEnabled) {
+            router.replace('/(private)/enter-pin');
+          } else {
+            router.replace('/(private)/home');
+          }
+        }
+      } else {
+        Alert.alert(Strings.common.error, 'Credenciales inválidas');
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -71,26 +87,43 @@ export default function LoginScreen() {
     }
   };
 
-  const handleBiometricLogin = () => {
+  const handleBiometricLogin = async () => {
     setBiometricSheetVisible(false);
     setIsLoading(true);
-    // Mock biometric auth logic
-    setTimeout(() => {
+    
+    try {
+      const result = await biometricService.authenticateWithBiometrics(
+        'Autentícate para ingresar a la aplicación'
+      );
+      
+      if (result) {
+        // Mock successful authentication with demo credentials
+        const success = await login('demo@peyopagos.com', 'demo123');
+        
+        if (success) {
+          if (pinEnabled) {
+            router.replace('/(private)/enter-pin');
+          } else {
+            router.replace('/(private)/home');
+          }
+        }
+      } else {
+        Alert.alert('Error', 'Autenticación biométrica fallida');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo completar la autenticación biométrica');
+    } finally {
       setIsLoading(false);
-      Alert.alert("Biometric Login Successful", "Welcome back!", [
-        { text: "OK", onPress: () => router.replace("/(private)/enter-pin") },
-      ]);
-    }, 1000);
+    }
   };
 
-  // Mock function to enable biometrics for testing
-  const enableBiometricsForTesting = async () => {
-    await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, "true");
-    setBiometricAvailable(true);
-    Alert.alert(
-      "Biometrics Enabled",
-      "Biometric login option is now available for testing."
-    );
+  const getBiometricButtonText = () => {
+    switch (biometricType) {
+      case 'facial': return 'Ingresar con Face ID';
+      case 'fingerprint': return 'Ingresar con Touch ID';
+      case 'iris': return 'Ingresar con Iris';
+      default: return 'Ingresar con biometría';
+    }
   };
 
   const handleRegister = () => {
@@ -120,6 +153,17 @@ export default function LoginScreen() {
             <ThemedText style={styles.subtitle}>
               Inicia sesión en tu cuenta
             </ThemedText>
+
+            {/* Biometric Login Button */}
+            {isBiometricAvailable && (
+              <ThemedButton
+                title={getBiometricButtonText()}
+                type="outline"
+                size="large"
+                onPress={() => setBiometricSheetVisible(true)}
+                style={styles.biometricButton}
+              />
+            )}
 
             <Formik
               initialValues={{ email: "", password: "" }}
@@ -157,12 +201,13 @@ export default function LoginScreen() {
                     size="large"
                     onPress={() => formikProps.handleSubmit()}
                     loading={isLoading}
-                    disabled={isLoading || !formikProps.isValid}
+                    disabled={isLoading}
                     style={styles.button}
                   />
                 </View>
               )}
             </Formik>
+            
             <View style={styles.registerContainer}>
               <ThemedText>¿No tienes cuenta? </ThemedText>
               <TouchableOpacity onPress={handleRegister}>
@@ -172,6 +217,7 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      
       <BiometricLoginBottomSheet
         isVisible={isBiometricSheetVisible}
         onClose={() => setBiometricSheetVisible(false)}
@@ -229,5 +275,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 24,
+  },
+  biometricButton: {
+    marginBottom: 16,
   },
 });

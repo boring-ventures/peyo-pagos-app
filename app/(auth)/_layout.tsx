@@ -41,6 +41,8 @@ export default function AuthLayout() {
       <Stack.Screen name="biometric-setup" options={{ title: 'Configuración Biométrica', headerTitle: '' }} />
       <Stack.Screen name="pin-setup" options={{ title: 'Crear PIN de Seguridad', headerTitle: '' }} />
       <Stack.Screen name="pin-confirm" options={{ title: 'Confirmar PIN', headerTitle: '' }} />
+      <Stack.Screen name="kyc-success" options={{ headerShown: false }} />
+      <Stack.Screen name="kyc-pending" options={{ headerShown: false }} />
       <Stack.Screen name="welcome" options={{ headerShown: false }} />
     </Stack>
   );

@@ -73,6 +73,12 @@ export default function ProfileScreen() {
             type="primary"
             style={styles.actionButton}
           />
+          <ThemedButton
+            title="Seguridad"
+            onPress={() => router.push('/(private)/security-settings' as any)}
+            type="secondary"
+            style={styles.actionButton}
+          />
         </View>
 
         {/* Profile Information */}
