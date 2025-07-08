@@ -5,19 +5,18 @@ import { useThemedAsset } from '@/app/hooks/useThemedAsset';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Image, StyleSheet, View, useColorScheme } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VerificationSuccessScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
   const logo = useThemedAsset(
     require('@/assets/images/icon-light.png'),
     require('@/assets/images/icon-dark.png')
   );
 
   const handleContinue = () => {
-    router.replace('/(private)/home');
+    router.replace('/(auth)/biometric-setup');
   };
 
   return (
@@ -45,7 +44,6 @@ export default function VerificationSuccessScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F172A',
     padding: 24,
     justifyContent: 'space-between',
   },

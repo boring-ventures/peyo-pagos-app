@@ -62,7 +62,9 @@ const DocumentCamera: React.FC<DocumentCameraProps> = ({ onPictureTaken, overlay
 
   const renderOverlay = () => {
     if (overlayType === 'id-card') {
-      return <View style={styles.idCardOverlay} />;
+      return <View style={styles.idCardOverlay}>
+        <View style={styles.idCardRect} />
+      </View>;
     }
     if (overlayType === 'face') {
         return (
@@ -158,6 +160,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  idCardRect: {
+    width: '80%',
+    aspectRatio: 1.6, // typical ID card ratio
+    borderWidth: 2,
+    borderColor: 'white',
+    borderRadius: 8,
+    backgroundColor: 'transparent',
   },
   faceOverlay: {
     ...StyleSheet.absoluteFillObject,

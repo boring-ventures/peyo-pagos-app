@@ -6,19 +6,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-    Image,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  Image,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
 
 export default function DocumentIntroScreen() {
   const router = useRouter();
   const idVerificationAsset = useThemedAsset(
-    require('@/assets/images/onboarding/id-verification.png'),
-    require('@/assets/images/onboarding/id-verification.png')
+    require('@/assets/images/onboarding/card.png'),
+    require('@/assets/images/onboarding/card.png')
   );
 
   const colorScheme = useColorScheme();
@@ -112,8 +112,8 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   image: {
-    width: 150,
-    height: 150,
+    width: 250,
+    height: 250,
     resizeMode: 'contain',
     marginBottom: 32,
   },
