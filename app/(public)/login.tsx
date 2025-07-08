@@ -93,15 +93,6 @@ export default function LoginScreen() {
     );
   };
 
-  const handleForgotPassword = () => {
-    router.push("/(public)/forgot-password" as any);
-  };
-
-  const handleGoogleLogin = () => {
-    // TODO: Implement Google OAuth
-    Alert.alert("Google Login", "Google authentication coming soon.");
-  };
-
   const handleRegister = () => {
     router.push("/(public)/register" as any);
   };
@@ -141,7 +132,7 @@ export default function LoginScreen() {
                     formikProps={formikProps}
                     formikKey="email"
                     label="Correo electrónico"
-                    placeholder="Enter Address"
+                    placeholder="Correo electrónico"
                     keyboardType="email-address"
                   />
 

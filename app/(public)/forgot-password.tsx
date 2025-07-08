@@ -37,7 +37,7 @@ export default function ForgotPasswordScreen() {
         Strings.auth.forgotPassword.emailSentDesc,
         [
           {
-            text: Strings.auth.forgotPassword.backToLogin,
+            text: Strings.auth.forgotPassword.enterCode,
             onPress: () =>
               router.push({
                 pathname: "/(public)/otp-verification",

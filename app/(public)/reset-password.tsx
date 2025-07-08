@@ -3,13 +3,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Formik } from 'formik';
 import React, { useState } from 'react';
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  useColorScheme,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Yup from 'yup';
 
 import { FormField } from '@/app/components/FormField';
@@ -17,7 +18,6 @@ import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
 import { Strings } from '@/app/constants/Strings';
-import { useThemeColor } from '@/app/hooks/useThemeColor';
 import { supabase } from '@/app/services/supabaseClient';
 
 const ResetPasswordSchema = Yup.object().shape({
@@ -34,9 +34,8 @@ export default function ResetPasswordScreen() {
   const { token } = useLocalSearchParams<{ token?: string }>();
   const [isLoading, setIsLoading] = useState(false);
 
-  const backgroundColor = useThemeColor({}, 'background');
-  const textSecondaryColor = useThemeColor({}, 'textSecondary');
-  const iconColor = useThemeColor({}, 'icon');
+  const colorScheme = useColorScheme();
+  const cardBg = colorScheme === 'dark' ? '#1A2B42' : '#FFFFFF';
 
   const handleResetPassword = async (values: { 
     newPassword: string; 
@@ -98,60 +97,65 @@ export default function ResetPasswordScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={'#fff'} />
-        </TouchableOpacity>
-
+      <View style={styles.header}>
+        <SafeAreaView edges={["top"]} style={styles.safeAreaHeader}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+        </SafeAreaView>
+      </View>
+      <View style={styles.cardSheetWrapper}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <ThemedText type="title" style={styles.title}>
-            Nueva contraseña
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Crea tu contraseña
-          </ThemedText>
+          <View style={[styles.cardSheet, { backgroundColor: cardBg }]}>
+            <ThemedText type="title" style={styles.title}>
+              {Strings.auth.resetPassword.title}
+            </ThemedText>
+            <ThemedText style={styles.subtitle}>
+              {Strings.auth.resetPassword.subtitle}
+            </ThemedText>
 
-          <Formik
-            initialValues={{ newPassword: '', confirmPassword: '' }}
-            validationSchema={ResetPasswordSchema}
-            onSubmit={handleResetPassword}
-          >
-            {(formikProps) => (
-              <View style={styles.formContainer}>
-                <FormField
-                  formikProps={formikProps}
-                  formikKey="newPassword"
-                  label="Nueva contraseña"
-                  placeholder="Introduce tu contraseña"
-                  secureTextEntry
-                />
+            <Formik
+              initialValues={{ newPassword: '', confirmPassword: '' }}
+              validationSchema={ResetPasswordSchema}
+              onSubmit={handleResetPassword}
+            >
+              {(formikProps) => (
+                <View style={styles.formContainer}>
+                  <FormField
+                    formikProps={formikProps}
+                    formikKey="newPassword"
+                    label={Strings.auth.resetPassword.newPasswordPlaceholder}
+                    placeholder={Strings.auth.resetPassword.newPasswordPlaceholder}
+                    secureTextEntry
+                  />
 
-                <FormField
-                  formikProps={formikProps}
-                  formikKey="confirmPassword"
-                  label="Confirmar contraseña"
-                  placeholder="Introduce tu contraseña nuevamente"
-                  secureTextEntry
-                />
+                  <FormField
+                    formikProps={formikProps}
+                    formikKey="confirmPassword"
+                    label={Strings.auth.resetPassword.confirmPasswordPlaceholder}
+                    placeholder={Strings.auth.resetPassword.confirmPasswordPlaceholder}
+                    secureTextEntry
+                  />
 
-                <ThemedButton
-                  title="Confirmar contraseña"
-                  type="primary"
-                  size="large"
-                  onPress={() => formikProps.handleSubmit()}
-                  loading={isLoading}
-                  disabled={isLoading || !formikProps.isValid}
-                  style={styles.button}
-                />
-              </View>
-            )}
-          </Formik>
+                  <ThemedButton
+                    title={Strings.auth.resetPassword.confirmButton}
+                    type="primary"
+                    size="large"
+                    onPress={() => formikProps.handleSubmit()}
+                    loading={isLoading}
+                    disabled={isLoading || !formikProps.isValid}
+                    style={styles.button}
+                  />
+                </View>
+              )}
+            </Formik>
+          </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </ThemedView>
   );
 }
@@ -159,21 +163,49 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0F172A',
   },
-  safeArea: {
-    flex: 1,
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  safeAreaHeader: {
+    paddingHorizontal: 20,
   },
   backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 10,
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1E293B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardSheetWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 150,
+    paddingHorizontal: 10,
+  },
+  cardSheet: {
+    width: '100%',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'stretch',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   scrollContent: {
-    paddingTop: 100,
-    paddingBottom: 40,
-    paddingHorizontal: 24,
+    flexGrow: 1,
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    paddingBottom: 24,
   },
   title: {
     textAlign: 'center',
