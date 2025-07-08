@@ -11,7 +11,6 @@ import {
   Alert,
   Modal,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -121,61 +120,54 @@ export default function OTPVerificationScreen() {
         </View>
       </Modal>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
-          </TouchableOpacity>
-        </View>
         <View
           style={[
             styles.cardSheet,
             { backgroundColor: colorScheme === "dark" ? "#1A2B42" : "#FFFFFF" },
           ]}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <ThemedText type="title" style={styles.title}>
-              Verifica tu cuenta
-            </ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Por favor ingresa el codigo de {OTP_LENGTH} digitos que se envio al correo
-              {email ? `\n${email}` : ""}
-            </ThemedText>
-            <OTPInput value={otp} length={OTP_LENGTH} />
-            <View style={styles.resendSection}>
-              <TouchableOpacity onPress={handleResendCode} disabled={!canResend}>
-                <ThemedText style={styles.resendText}>
-                  {canResend
-                    ? "Reenviar código"
-                    : `Reenviar código en ${formatCountdown(countdown)}`}
-                </ThemedText>
-              </TouchableOpacity>
-              <View style={styles.whatsappContainer}>
-                <ThemedText style={styles.whatsappText}>
-                  O usa enviar al
-                </ThemedText>
-                <TouchableOpacity onPress={handleSendViaWhatsapp}>
-                  <ThemedText style={[styles.whatsappLink, { color: linkColor }]}>WhatsApp</ThemedText>
+          <View style={styles.content}>
+            <View style={styles.topSection}>
+              <ThemedText type="title" style={styles.title}>
+                Verifica tu cuenta
+              </ThemedText>
+              <ThemedText style={styles.subtitle}>
+                Por favor ingresa el codigo de {OTP_LENGTH} digitos que se envio al correo
+                {email ? `\n${email}` : ""}
+              </ThemedText>
+              <OTPInput value={otp} length={OTP_LENGTH} />
+              <View style={styles.resendSection}>
+                <TouchableOpacity onPress={handleResendCode} disabled={!canResend}>
+                  <ThemedText style={styles.resendText}>
+                    {canResend
+                      ? "Reenviar código"
+                      : `Reenviar código en ${formatCountdown(countdown)}`}
+                  </ThemedText>
                 </TouchableOpacity>
+                <View style={styles.whatsappContainer}>
+                  <ThemedText style={styles.whatsappText}>
+                    O usa enviar al
+                  </ThemedText>
+                  <TouchableOpacity onPress={handleSendViaWhatsapp}>
+                    <ThemedText style={[styles.whatsappLink, { color: linkColor }]}>WhatsApp</ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-            <NumericKeypad onKeyPress={handleKeyPress} onDelete={handleDelete} />
-            <ThemedButton
-              title="Continuar"
-              type="primary"
-              size="large"
-              onPress={handleVerifyOTP}
-              loading={isLoading}
-              disabled={isLoading || otp.length !== OTP_LENGTH}
-              style={styles.continueButton}
-            />
-          </ScrollView>
+            
+            <View style={styles.bottomSection}>
+              <NumericKeypad onKeyPress={handleKeyPress} onDelete={handleDelete} />
+              <ThemedButton
+                title="Continuar"
+                type="primary"
+                size="large"
+                onPress={handleVerifyOTP}
+                loading={isLoading}
+                disabled={isLoading || otp.length !== OTP_LENGTH}
+                style={styles.continueButton}
+              />
+            </View>
+          </View>
         </View>
       </SafeAreaView>
     </ThemedView>
@@ -190,36 +182,24 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  header: {
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#1E293B",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   cardSheet: {
     flex: 1,
-    marginTop: 100,
     backgroundColor: "#1A2B42",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 24,
     paddingTop: 32,
   },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "flex-start",
+  content: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  topSection: {
     alignItems: "center",
+    paddingTop: 20,
+  },
+  bottomSection: {
+    justifyContent: "flex-end",
     paddingBottom: 24,
   },
   title: {
@@ -234,7 +214,7 @@ const styles = StyleSheet.create({
   },
   resendSection: {
     alignItems: "center",
-    marginBottom: 5,
+    marginBottom: 20,
     marginTop: 10,
   },
   whatsappContainer: {
