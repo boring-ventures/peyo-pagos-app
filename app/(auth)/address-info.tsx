@@ -2,11 +2,12 @@ import { useRouter } from "expo-router";
 import { Formik } from "formik";
 import React, { useEffect, useState } from "react";
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   useColorScheme,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Yup from "yup";
@@ -28,8 +29,8 @@ import { Ionicons } from "@expo/vector-icons";
 const AddressInfoSchema = Yup.object().shape({
   country: Yup.string().required("El país es requerido"),
   state: Yup.string().required("El departamento es requerido"),
-  city: Yup.string().required("La ciudad es requerida"),
-  address: Yup.string().required("La dirección es requerida"),
+  randomField1: Yup.string().required("La ciudad es requerida"),
+  randomField2: Yup.string().required("La dirección es requerida"),
   postalCode: Yup.string(),
 });
 
@@ -69,7 +70,15 @@ export default function AddressInfoScreen() {
   };
 
   const handleContinue = (values: any) => {
-    updateAddressInfo(values);
+    // Map the random field names back to expected names
+    const addressData = {
+      country: values.country,
+      state: values.state,
+      city: values.randomField1,
+      address: values.randomField2,
+      postalCode: values.postalCode,
+    };
+    updateAddressInfo(addressData);
     kycService.advanceToNextStep("address");
     router.push("./economic-activity");
   };
@@ -102,8 +111,8 @@ export default function AddressInfoScreen() {
                 initialValues={{
                   country: addressInfo.country || "",
                   state: addressInfo.state || "",
-                  city: addressInfo.city || "",
-                  address: addressInfo.address || "",
+                  randomField1: addressInfo.city || "",
+                  randomField2: addressInfo.address || "",
                   postalCode: addressInfo.postalCode || "",
                 }}
                 validationSchema={AddressInfoSchema}
@@ -134,16 +143,44 @@ export default function AddressInfoScreen() {
                       }
                     />
                     <FormField
-                      formikKey="city"
+                      formikKey="randomField1"
                       formikProps={formikProps}
                       label="Ciudad"
                       placeholder="Ej. Santa Cruz de la Sierra"
+                      autoComplete="off"
+                      textContentType="none"
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      importantForAutofill="no"
+                      autoCorrect={false}
+                      spellCheck={false}
+                      clearButtonMode="never"
+                      {...(Platform.OS === 'ios' && {
+                        keyboardType: 'default',
+                        passwordRules: 'minlength: 0; maxlength: 999;',
+                        secureTextEntry: false,
+                        dataDetectorTypes: 'none',
+                      })}
                     />
                     <FormField
-                      formikKey="address"
+                      formikKey="randomField2"
                       formikProps={formikProps}
                       label="Dirección"
                       placeholder="Ej. Av. Principal #123"
+                      autoComplete="off"
+                      textContentType="none"
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      importantForAutofill="no"
+                      autoCorrect={false}
+                      spellCheck={false}
+                      clearButtonMode="never"
+                      {...(Platform.OS === 'ios' && {
+                        keyboardType: 'default',
+                        passwordRules: 'minlength: 0; maxlength: 999;',
+                        secureTextEntry: false,
+                        dataDetectorTypes: 'none',
+                      })}
                     />
                     <FormField
                       formikKey="postalCode"
@@ -151,6 +188,9 @@ export default function AddressInfoScreen() {
                       label="Código Postal (Opcional)"
                       placeholder="Ej. 0000"
                       keyboardType="numeric"
+                      autoComplete="off"
+                      textContentType="none"
+                      importantForAutofill="no"
                     />
 
                     <ThemedButton

@@ -9,7 +9,7 @@ import {
   TextInput,
   TextInputProps,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 export interface FormFieldProps extends TextInputProps {
@@ -20,6 +20,12 @@ export interface FormFieldProps extends TextInputProps {
   secureTextEntry?: boolean;
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  autoComplete?: TextInputProps['autoComplete'];
+  textContentType?: TextInputProps['textContentType'];
+  importantForAutofill?: "auto" | "no" | "noExcludeDescendants" | "yes" | "yesExcludeDescendants";
+  clearButtonMode?: TextInputProps['clearButtonMode'];
+  passwordRules?: string;
+  dataDetectorTypes?: TextInputProps['dataDetectorTypes'];
 }
 
 export const FormField: React.FC<FormFieldProps> = ({
@@ -30,14 +36,19 @@ export const FormField: React.FC<FormFieldProps> = ({
   secureTextEntry = false,
   keyboardType = "default",
   autoCapitalize = "none",
+  autoComplete,
+  textContentType,
+  importantForAutofill,
+  clearButtonMode = "while-editing",
+  passwordRules,
+  dataDetectorTypes,
   ...props
 }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
   const textColor = useThemeColor({}, "text");
-  const placeholderColor = useThemeColor({}, "textSecondary");
-  const backgroundColor = useThemeColor({}, "background");
+  const placeholderColor = useThemeColor({}, "textSecondary"); const backgroundColor = useThemeColor({}, "background");
   const borderColor = useThemeColor({}, "border");
   const errorColor = useThemeColor({}, "error");
   const primaryColor = useThemeColor({}, "tint");
@@ -106,6 +117,14 @@ export const FormField: React.FC<FormFieldProps> = ({
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          autoCorrect={false}
+          spellCheck={false}
+          clearButtonMode={clearButtonMode}
+          importantForAutofill={importantForAutofill}
+          passwordRules={passwordRules}
+          dataDetectorTypes={dataDetectorTypes}
           {...props}
         />
 

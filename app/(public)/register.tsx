@@ -3,12 +3,12 @@ import { useRouter } from "expo-router";
 import { Formik } from "formik";
 import React, { useState } from "react";
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from "react-native";
 import * as Yup from "yup";
 
@@ -16,8 +16,8 @@ import { TermsAndConditionsCheckbox } from "@/app/components/auth/TermsAndCondit
 import { useAuth } from "@/app/components/AuthContext";
 import { FormField } from "@/app/components/FormField";
 import CountrySelector, {
-  Country,
-  countries,
+    Country,
+    countries,
 } from "@/app/components/shared/CountrySelector";
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
@@ -156,6 +156,8 @@ export default function RegisterScreen() {
                     placeholder={Strings.auth.register.emailPlaceholder}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    autoComplete="email"
+                    textContentType="emailAddress"
                     leftIcon={
                       <Ionicons
                         name="mail-outline"
@@ -180,6 +182,8 @@ export default function RegisterScreen() {
                         formikProps={formikProps}
                         placeholder={Strings.auth.register.phonePlaceholder}
                         keyboardType="phone-pad"
+                        autoComplete="tel"
+                        textContentType="telephoneNumber"
                         leftIcon={
                           <Ionicons
                             name="call-outline"
@@ -198,6 +202,9 @@ export default function RegisterScreen() {
                     formikProps={formikProps}
                     placeholder={Strings.auth.register.passwordPlaceholder}
                     secureTextEntry={true}
+                    autoComplete="new-password"
+                    textContentType="newPassword"
+                    passwordRules="minlength: 6;"
                     leftIcon={
                       <Ionicons
                         name="lock-closed-outline"
@@ -216,6 +223,9 @@ export default function RegisterScreen() {
                       Strings.auth.register.confirmPasswordPlaceholder
                     }
                     secureTextEntry={true}
+                    autoComplete="new-password"
+                    textContentType="newPassword"
+                    passwordRules="minlength: 6;"
                     leftIcon={
                       <Ionicons
                         name="lock-closed-outline"

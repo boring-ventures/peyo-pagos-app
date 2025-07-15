@@ -91,7 +91,8 @@ const DocumentCamera: React.FC<DocumentCameraProps> = ({ onPictureTaken, overlay
           </View>
         </View>
       ) : (
-        <CameraView style={styles.camera} facing={facing} flash={flash} ref={cameraRef}>
+        <View style={styles.cameraWrapper}>
+          <CameraView style={styles.camera} facing={facing} flash={flash} ref={cameraRef} />
           {renderOverlay()}
           <View style={styles.controlsFloating}>
             <TouchableOpacity onPress={toggleFacing} style={styles.iconButton}>
@@ -102,7 +103,7 @@ const DocumentCamera: React.FC<DocumentCameraProps> = ({ onPictureTaken, overlay
               <Ionicons name={flash === 'off' ? 'flash-off' : 'flash'} size={28} color="white" />
             </TouchableOpacity>
           </View>
-        </CameraView>
+        </View>
       )}
     </View>
   );
@@ -117,9 +118,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  cameraWrapper: {
+    flex: 1,
+    position: 'relative',
+  },
   camera: {
     flex: 1,
-    justifyContent: 'flex-end',
   },
   controlsFloating: {
     flexDirection: 'row',
@@ -130,6 +134,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     position: 'absolute',
     bottom: 0,
+    left: 0,
+    right: 0,
     width: '100%',
   },
   captureButton: {
@@ -157,7 +163,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   idCardOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -170,7 +180,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   faceOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
