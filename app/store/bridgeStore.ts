@@ -3,8 +3,8 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { bridgeService } from '../services/bridgeService';
 import {
-    BridgeIntegrationStatus,
-    KycProfileForBridge
+  BridgeIntegrationStatus,
+  KycProfileForBridge
 } from '../types/BridgeTypes';
 
 // Bridge Store State
@@ -194,12 +194,22 @@ export const useBridgeStore = create<BridgeStore>()(
           // Update store with customer data
           set({
             bridgeCustomerId: customer.id,
-            bridgeVerificationStatus: customer.verification_status,
-            requirementsDue: customer.requirements_due,
-            payinCrypto: customer.payin_crypto,
-            payoutCrypto: customer.payout_crypto,
+            bridgeVerificationStatus: customer.verification_status as any, // TODO: Fix type
+            requirementsDue: customer.requirements_due || [],
+            payinCrypto: customer.payin_crypto as any, // TODO: Fix type
+            payoutCrypto: customer.payout_crypto as any, // TODO: Fix type
             lastSyncAt: new Date().toISOString()
           });
+
+          // 🚨 NEW: Also save to database
+          console.log('🗄️ Saving bridge_customer_id to database...');
+          const { profileService } = await import('../services/profileService');
+          const dbUpdateResult = await profileService.updateBridgeCustomerId(kycProfile.userId, customer.id);
+          
+          if (!dbUpdateResult.success) {
+            console.warn('⚠️ Bridge customer created successfully, but database update failed:', dbUpdateResult.error);
+            // Don't fail the whole operation since Bridge customer was created
+          }
 
           return { 
             success: true, 

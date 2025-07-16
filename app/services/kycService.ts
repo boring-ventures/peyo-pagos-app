@@ -508,9 +508,107 @@ const getBridgeIntegrationStatus = () => {
   };
 };
 
+/**
+ * Auto-complete entire KYC flow with placeholder data for seamless onboarding
+ * This creates a complete profile and Bridge integration automatically
+ */
+const autoCompleteKYCFlow = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log('🤖 Starting automated KYC flow...');
+    
+    const { user } = useAuthStore.getState();
+    if (!user) {
+      return { success: false, error: 'No user found for automated KYC' };
+    }
+
+    // Set automated KYC data in store
+    const { updatePersonalInfo, updateAddressInfo, updateEconomicActivity, setCurrentStep } = useKycStore.getState();
+    
+    console.log('📝 Setting automated personal info...');
+    updatePersonalInfo({
+      firstName: 'Usuario', // Placeholder - can be updated later
+      lastName: 'Demo', // Placeholder - can be updated later  
+      dateOfBirth: '1995-01-01', // Placeholder - can be updated later
+      nationality: 'BOL', // Bolivia default
+    });
+
+    console.log('🏠 Setting automated address info...');
+    updateAddressInfo({
+      country: 'BO', // Bolivia
+      state: 'CBB', // Cochabamba
+      city: 'Cochabamba',
+      address: 'Dirección Provisional', // Placeholder
+      postalCode: '0001', // Placeholder
+    });
+
+    console.log('💼 Setting automated economic activity...');
+    updateEconomicActivity({
+      activity: 'Servicios', // Generic activity
+      occupation: 'Empleado', // Generic occupation
+      monthlyIncome: '3000', // Mid-range income in USD
+    });
+
+    console.log('📄 Setting placeholder documents...');
+    // For automated flow, we'll skip document upload initially
+    // Documents will be updated when user actually uploads them later in the flow
+    // The profile creation will use placeholder paths that indicate they need real documents
+    console.log('⚠️ Using placeholder document paths - user will need to upload real documents later');
+
+    // Set KYC as completed
+    setCurrentStep('completed');
+
+    console.log('🏗️ Creating profiles in database...');
+    // Create profiles in database using automated data
+    const profileResult = await profileService.createProfileAfterKyc();
+    
+    if (!profileResult.success) {
+      console.error('❌ Automated profile creation failed:', profileResult.error);
+      return { success: false, error: profileResult.error };
+    }
+
+    console.log('✅ Automated profiles created successfully');
+
+    // Update auth store with new profile data
+    console.log('🔄 Refreshing auth store...');
+    const { initialize } = useAuthStore.getState();
+    await initialize();
+
+    console.log('🌉 Starting automated Bridge integration...');
+    
+    // Only create Bridge customer if API key is configured
+    if (process.env.EXPO_PUBLIC_BRIDGE_API_KEY) {
+      try {
+        // Initialize Bridge integration
+        const bridgeResult = await initializeBridgeIntegration();
+        
+        if (!bridgeResult.success) {
+          console.warn('⚠️ Bridge integration failed in automated flow:', bridgeResult.error);
+          // Don't fail the whole process - user can retry Bridge later
+        } else {
+          console.log('✅ Automated Bridge integration completed');
+        }
+      } catch (bridgeError) {
+        console.warn('⚠️ Bridge integration error in automated flow:', bridgeError);
+        // Continue even if Bridge fails
+      }
+    } else {
+      console.log('⚠️ Bridge API key not configured, skipping automated Bridge integration');
+    }
+
+    console.log('🎉 Automated KYC flow completed successfully!');
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('💥 Automated KYC flow failed:', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+};
+
 export const kycService = {
   advanceToNextStep,
   submitKycData,
   initializeBridgeIntegration,
   convertDatabaseProfileToBridge,
+  autoCompleteKYCFlow,
 };

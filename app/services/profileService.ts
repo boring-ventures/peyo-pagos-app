@@ -44,7 +44,7 @@ export const profileService = {
         return { success: false, error: 'No user found' };
       }
 
-      // Validate required data
+      // Validate required data (allow placeholder documents for automated flow)
       const missingFields: string[] = [];
       if (!personalInfo.firstName) missingFields.push('firstName');
       if (!personalInfo.lastName) missingFields.push('lastName');
@@ -53,8 +53,9 @@ export const profileService = {
       if (!addressInfo.country) missingFields.push('country');
       if (!addressInfo.city) missingFields.push('city');
       if (!addressInfo.address) missingFields.push('address');
-      if (!documents.idFront) missingFields.push('idFront');
-      if (!documents.selfie) missingFields.push('selfie');
+      // Note: documents are now optional for automated flow
+      // if (!documents.idFront) missingFields.push('idFront');
+      // if (!documents.selfie) missingFields.push('selfie');
 
       if (missingFields.length > 0) {
         return { 
@@ -161,8 +162,8 @@ export const profileService = {
         updatedAt: currentTimestamp,
         document_type: 'national_id', // Valid enum value
         issuing_country: addressInfo.country || 'BO',
-        image_front: documents.idFront,
-        image_back: documents.idBack,
+        image_front: documents.idFront || 'placeholder/id-front.jpg', // Use placeholder if not provided
+        image_back: documents.idBack || 'placeholder/id-back.jpg', // Use placeholder if not provided
       };
 
       console.log('📋 Creating IdentifyingInformation record...');
@@ -185,7 +186,7 @@ export const profileService = {
         createdAt: currentTimestamp,
         updatedAt: currentTimestamp,
         purposes: ['other'], // Changed from 'proof_of_identity' to 'other' (valid enum value)
-        file_url: documents.selfie,
+        file_url: documents.selfie || 'placeholder/selfie.jpg', // Use placeholder if not provided
         description: 'Selfie verification photo',
       };
 
@@ -281,6 +282,51 @@ export const profileService = {
     } catch (error) {
       console.error('💥 Error getting profile for Bridge:', error);
       return null;
+    }
+  },
+
+  /**
+   * Update bridge_customer_id in KYC profile after successful Bridge customer creation
+   */
+  updateBridgeCustomerId: async (userId: string, bridgeCustomerId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🌉 Updating bridge_customer_id in database...', { userId, bridgeCustomerId });
+      
+      // Find the KYC profile for this user
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', userId)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('❌ Profile not found for user:', userId, profileError);
+        return { success: false, error: `Profile not found: ${profileError?.message}` };
+      }
+
+      // Update the KYC profile with Bridge customer ID
+      const { error: updateError } = await supabaseAdmin
+        .from('kyc_profiles')
+        .update({
+          bridge_customer_id: bridgeCustomerId,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('profile_id', profile.id);
+
+      if (updateError) {
+        console.error('❌ Failed to update bridge_customer_id:', updateError);
+        return { success: false, error: `Update failed: ${updateError.message}` };
+      }
+
+      console.log('✅ Bridge customer ID saved to database successfully');
+      return { success: true };
+
+    } catch (error) {
+      console.error('💥 Error updating bridge_customer_id:', error);
+      return { 
+        success: false, 
+        error: `Database update error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      };
     }
   },
 }; 

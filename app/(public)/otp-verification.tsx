@@ -133,8 +133,19 @@ export default function OTPVerificationScreen() {
         // Update auth store with verified user info
         await initialize();
         
-        console.log('✅ Registration completed successfully, proceeding to KYC');
-        router.replace("/(auth)/personal-info");
+        console.log('✅ Registration completed successfully, starting automated onboarding...');
+        
+        // 🚀 NEW: Auto-complete entire KYC and Bridge flow
+        const { kycService } = await import('@/app/services/kycService');
+        const autoKycResult = await kycService.autoCompleteKYCFlow();
+        
+        if (autoKycResult.success) {
+          console.log('🎉 Automated onboarding completed successfully!');
+          router.replace("/(private)/home");
+        } else {
+          console.warn('⚠️ Automated onboarding failed, falling back to manual KYC:', autoKycResult.error);
+          router.replace("/(auth)/personal-info");
+        }
         
       } else if (purpose === "passwordReset") {
         // For password reset, use the original flow
