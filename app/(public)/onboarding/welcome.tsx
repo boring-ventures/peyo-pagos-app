@@ -25,7 +25,7 @@ export default function WelcomeScreen() {
         <View style={styles.content}>
           {/* Logo/Illustration */}
           <View style={styles.logoContainer}>
-            <OnboardingIllustration type="welcome" size={400} />
+            <OnboardingIllustration type="welcome" size={350} />
           </View>
           
           {/* Text Content */}
