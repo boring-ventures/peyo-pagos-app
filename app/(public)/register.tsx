@@ -3,12 +3,12 @@ import { useRouter } from "expo-router";
 import { Formik } from "formik";
 import React, { useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from "react-native";
 import * as Yup from "yup";
 
@@ -16,14 +16,15 @@ import { TermsAndConditionsCheckbox } from "@/app/components/auth/TermsAndCondit
 import { useAuth } from "@/app/components/AuthContext";
 import { FormField } from "@/app/components/FormField";
 import CountrySelector, {
-    Country,
-    countries,
+  Country,
+  countries,
 } from "@/app/components/shared/CountrySelector";
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
 import { Strings } from "@/app/constants/Strings";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
+import { authService } from "@/app/services/authService";
 
 // Phone number validation regex (international format)
 const phoneRegex = /^[+]?[1-9]\d{1,14}$/;
@@ -70,17 +71,35 @@ export default function RegisterScreen() {
     setIsLoading(true);
 
     try {
-      // TODO: Send OTP to user's email here first
-      // await authService.sendOTP(values.email, 'signup');
+      // Format phone number to E.164 format using selected country
+      const formattedPhone = authService.formatPhoneToE164(
+        values.phone, 
+        selectedCountry.dial_code
+      );
 
-      // Navigate to OTP verification with email parameter
+      console.log("formattedPhone", formattedPhone);
+
+      // Send WhatsApp OTP to phone number
+      const { error } = await authService.sendWhatsAppOTP(formattedPhone, 'signup');
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Navigate to OTP verification with phone parameter and email for account linking
       router.push({
         pathname: "/(public)/otp-verification",
-        params: { email: values.email, purpose: 'signup' },
+        params: { 
+          phone: formattedPhone, 
+          email: values.email,
+          password: values.password,
+          purpose: 'signup' 
+        },
       } as any);
     } catch (error) {
       console.error("Register error:", error);
-      Alert.alert(Strings.common.error, Strings.auth.errors.registerFailed);
+      const errorMessage = error instanceof Error ? error.message : Strings.auth.errors.registerFailed;
+      Alert.alert(Strings.common.error, errorMessage);
     } finally {
       setIsLoading(false);
     }

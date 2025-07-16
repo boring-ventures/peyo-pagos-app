@@ -6,9 +6,11 @@ import { StyleSheet, View, useColorScheme } from 'react-native';
 interface OTPInputProps {
   value: string;
   length: number;
+  width?: number;
+  height?: number;
 }
 
-export const OTPInput: React.FC<OTPInputProps> = ({ value, length }) => {
+export const OTPInput: React.FC<OTPInputProps> = ({ value, length, width = 60, height = 60 }) => {
   const otpArray = Array(length).fill(0);
   const colorScheme = useColorScheme();
   
@@ -27,6 +29,8 @@ export const OTPInput: React.FC<OTPInputProps> = ({ value, length }) => {
             style={[
               styles.box,
               { 
+                width: width,
+                height: height,
                 backgroundColor: boxBackgroundColor,
                 borderColor: isFocused ? primaryColor : 'transparent',
               },
@@ -48,8 +52,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   box: {
-    width: 60,
-    height: 60,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',

@@ -4,12 +4,11 @@ import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
-import { Ionicons } from "@expo/vector-icons";
+import { authService } from "@/app/services/authService";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
-  Modal,
   SafeAreaView,
   StyleSheet,
   TouchableOpacity,
@@ -17,20 +16,21 @@ import {
   useColorScheme,
 } from "react-native";
 
-const OTP_LENGTH = 4;
-const RESEND_COUNTDOWN = 23; // seconds per design
+const OTP_LENGTH = 6;
+const RESEND_COUNTDOWN = 30; // seconds per design
 
 export default function OTPVerificationScreen() {
   const router = useRouter();
-  const { email, purpose } = useLocalSearchParams<{
-    email: string;
+  const { phone, email, password, purpose } = useLocalSearchParams<{
+    phone: string;
+    email?: string;
+    password?: string;
     purpose?: "signup" | "passwordReset";
   }>();
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(RESEND_COUNTDOWN);
   const [canResend, setCanResend] = useState(false);
-  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
 
   const colorScheme = useColorScheme();
   const linkColor = useThemeColor({}, "tint");
@@ -52,36 +52,91 @@ export default function OTPVerificationScreen() {
     setOtp((prev) => prev.slice(0, -1));
   }, []);
 
-  const handleVerifyOTP = () => {
-    if (otp !== "1234") {
-      Alert.alert("Invalid Code", "The code entered is incorrect.");
+  const handleVerifyOTP = async () => {
+    if (otp.length !== OTP_LENGTH) {
+      Alert.alert("Código incompleto", "Por favor ingresa el código completo de 4 dígitos.");
       return;
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      if (purpose === "signup") {
+    
+    try {
+      // Verify WhatsApp OTP
+      const { user, session, error } = await authService.verifyWhatsAppOTP(
+        phone, 
+        otp, 
+        purpose === "passwordReset" ? "recovery" : "signup"
+      );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (purpose === "signup" && email && password && session) {
+        // For signup, link WhatsApp verification to email account
+        const profileData = {
+          email,
+          first_name: "", // Will be filled in personal-info screen
+          last_name: "",  // Will be filled in personal-info screen
+          phone,
+        };
+
+        const { error: linkError } = await authService.completeEmailRegistration(
+          email,
+          password,
+          profileData,
+          session
+        );
+
+        if (linkError) {
+          console.warn("Account linking warning:", linkError.message);
+          // Continue anyway as WhatsApp verification succeeded
+        }
+
         router.replace("/(auth)/personal-info");
-      } else {
+      } else if (purpose === "passwordReset") {
         router.push({
           pathname: "/(public)/reset-password",
-          params: { email },
+          params: { phone },
         });
+      } else {
+        // Default signup flow without email linking
+        router.replace("/(auth)/personal-info");
       }
-    }, 1000);
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Código incorrecto";
+      Alert.alert("Código incorrecto", errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleResendCode = () => {
+  const handleResendCode = async () => {
     if (!canResend) return;
-    setCountdown(RESEND_COUNTDOWN);
-    setCanResend(false);
-    setOtp("");
-    Alert.alert("Code Resent", `A new code has been sent to ${email}`);
-  };
+    
+    setIsLoading(true);
+    try {
+      const { error } = await authService.resendWhatsAppOTP(
+        phone, 
+        purpose === "passwordReset" ? "recovery" : "signup"
+      );
+      
+      if (error) {
+        throw new Error(error.message);
+      }
 
-  const handleSendViaWhatsapp = () => {
-    setShowWhatsappModal(true);
+      setCountdown(RESEND_COUNTDOWN);
+      setCanResend(false);
+      setOtp("");
+      Alert.alert("Código reenviado", `Se envió un nuevo código a tu WhatsApp ${authService.formatPhoneForDisplay(phone)}`);
+    } catch (error) {
+      console.error("Resend error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Error al reenviar código";
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatCountdown = (seconds: number) =>
@@ -89,36 +144,6 @@ export default function OTPVerificationScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      {/* WhatsApp confirmation modal */}
-      <Modal
-        visible={showWhatsappModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowWhatsappModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalCard,
-              { backgroundColor: colorScheme === "dark" ? "#1A2B42" : "#FFFFFF" },
-            ]}
-          >
-            <View style={styles.modalIconWrapper}>
-              <Ionicons name="checkmark" size={40} color="#fff" />
-            </View>
-            <ThemedText type="title" style={styles.modalTitle}>
-              Se envió el código al WhatsApp
-            </ThemedText>
-            <ThemedButton
-              title="Ingresar código"
-              type="primary"
-              size="large"
-              style={styles.modalButton}
-              onPress={() => setShowWhatsappModal(false)}
-            />
-          </View>
-        </View>
-      </Modal>
       <SafeAreaView style={styles.safeArea}>
         <View
           style={[
@@ -132,26 +157,18 @@ export default function OTPVerificationScreen() {
                 Verifica tu cuenta
               </ThemedText>
               <ThemedText style={styles.subtitle}>
-                Por favor ingresa el codigo de {OTP_LENGTH} digitos que se envio al correo
-                {email ? `\n${email}` : ""}
+                Por favor ingresa el codigo de {OTP_LENGTH} digitos que se envio a tu WhatsApp
+                {phone ? `\n${authService.formatPhoneForDisplay(phone)}` : ""}
               </ThemedText>
-              <OTPInput value={otp} length={OTP_LENGTH} />
+              <OTPInput value={otp} length={OTP_LENGTH} width={45} height={45} />
               <View style={styles.resendSection}>
-                <TouchableOpacity onPress={handleResendCode} disabled={!canResend}>
-                  <ThemedText style={styles.resendText}>
+                <TouchableOpacity onPress={handleResendCode} disabled={!canResend || isLoading}>
+                  <ThemedText style={[styles.resendText, { opacity: (!canResend || isLoading) ? 0.5 : 1 }]}>
                     {canResend
                       ? "Reenviar código"
                       : `Reenviar código en ${formatCountdown(countdown)}`}
                   </ThemedText>
                 </TouchableOpacity>
-                <View style={styles.whatsappContainer}>
-                  <ThemedText style={styles.whatsappText}>
-                    O usa enviar al
-                  </ThemedText>
-                  <TouchableOpacity onPress={handleSendViaWhatsapp}>
-                    <ThemedText style={[styles.whatsappLink, { color: linkColor }]}>WhatsApp</ThemedText>
-                  </TouchableOpacity>
-                </View>
               </View>
             </View>
             
@@ -217,52 +234,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 10,
   },
-  whatsappContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  whatsappText: {
-    marginRight: 4,
-  },
   resendText: {
     textAlign: "center",
     opacity: 0.8,
   },
-  whatsappLink: {
-    textDecorationLine: "underline",
-  },
   continueButton: {
     marginTop: 16,
-    alignSelf: "stretch",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalCard: {
-    width: "80%",
-    backgroundColor: "#0F172A",
-    borderRadius: 24,
-    padding: 24,
-    alignItems: "center",
-  },
-  modalIconWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#45D483",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  modalTitle: {
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  modalButton: {
     alignSelf: "stretch",
   },
 });

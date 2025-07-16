@@ -406,6 +406,233 @@ export const authService = {
       return { error: err as AuthError };
     }
   },
+
+  /**
+   * Send WhatsApp OTP verification code
+   */
+  sendWhatsAppOTP: async (phone: string, type: 'signup' | 'recovery' = 'signup'): Promise<{ error: AuthError | null }> => {
+    try {
+      console.log('📱 Sending WhatsApp OTP to:', phone);
+      const { error } = await supabase.auth.signInWithOtp({
+        phone,
+        options: {
+          channel: 'sms',
+          shouldCreateUser: type === 'signup',
+        },
+      });
+      console.log('📱 WhatsApp OTP response:', { error });
+      return { error };
+    } catch (err) {
+      console.error('Error sending WhatsApp OTP:', err);
+      return { error: err as AuthError };
+    }
+  },
+
+  /**
+   * Verify WhatsApp OTP code
+   */
+  verifyWhatsAppOTP: async (
+    phone: string, 
+    token: string, 
+    type: 'signup' | 'recovery' = 'signup'
+  ): Promise<AuthResponse> => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone,
+        token,
+        type: 'sms', // Use 'sms' type for both SMS and WhatsApp verification
+      });
+
+      if (data.session) {
+        // Save session to AsyncStorage
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(data.session));
+      }
+
+      return {
+        user: data?.user || null,
+        session: data?.session || null,
+        error,
+      };
+    } catch (err) {
+      console.error('Error verifying WhatsApp OTP:', err);
+      return {
+        user: null,
+        session: null,
+        error: err as AuthError,
+      };
+    }
+  },
+
+  /**
+   * Resend WhatsApp OTP code
+   */
+  resendWhatsAppOTP: async (phone: string, type: 'signup' | 'recovery' = 'signup'): Promise<{ error: AuthError | null }> => {
+    try {
+      return await authService.sendWhatsAppOTP(phone, type);
+    } catch (err) {
+      console.error('Error resending WhatsApp OTP:', err);
+      return { error: err as AuthError };
+    }
+  },
+
+  /**
+   * Format phone number to E.164 format
+   */
+  formatPhoneToE164: (phone: string, countryCode: string = '+591'): string => {
+    if (!phone || !countryCode) {
+      throw new Error('Phone number and country code are required');
+    }
+
+    // Remove all non-numeric characters from phone
+    const cleanedPhone = phone.replace(/\D/g, '');
+    
+    // Remove + from country code for comparison
+    const countryDigits = countryCode.replace(/\D/g, '');
+    
+    // If phone is empty after cleaning, throw error
+    if (!cleanedPhone) {
+      throw new Error('Invalid phone number');
+    }
+    
+    // If phone already starts with country code, return it formatted
+    if (cleanedPhone.startsWith(countryDigits)) {
+      return '+' + cleanedPhone;
+    }
+    
+    // Remove leading zero if present (common in local numbers)
+    const phoneWithoutLeadingZero = cleanedPhone.replace(/^0+/, '');
+    
+    // Combine country code with cleaned phone number
+    const fullNumber = countryDigits + phoneWithoutLeadingZero;
+    
+    // Validate E.164 format (1-15 digits after +)
+    if (fullNumber.length < 8 || fullNumber.length > 15) {
+      throw new Error(`Invalid phone number length. Got ${fullNumber.length} digits, expected 8-15`);
+    }
+    
+    return '+' + fullNumber;
+  },
+
+  /**
+   * Format phone number for display
+   */
+  formatPhoneForDisplay: (phone: string): string => {
+    if (!phone || !phone.startsWith('+')) {
+      return phone;
+    }
+
+    // Extract country code and number
+    const match = phone.match(/^(\+\d{1,4})(\d+)$/);
+    if (!match) {
+      return phone;
+    }
+
+    const [, countryCode, number] = match;
+    
+    // Format based on country code
+    if (countryCode === '+591' && number.length === 8) {
+      // Bolivia: +591 7483 0949
+      return `${countryCode} ${number.substring(0, 4)} ${number.substring(4)}`;
+    } else if (countryCode === '+502' && number.length === 8) {
+      // Guatemala: +502 5555 1234
+      return `${countryCode} ${number.substring(0, 4)} ${number.substring(4)}`;
+    } else {
+      // Default formatting: +XXX XXX XXX XXXX
+      const groups = number.match(/(\d{1,3})(\d{1,3})?(\d{1,4})?/);
+      if (groups) {
+        const formatted = [countryCode, groups[1], groups[2], groups[3]]
+          .filter(Boolean)
+          .join(' ');
+        return formatted;
+      }
+    }
+    
+    return phone;
+  },
+
+  /**
+   * Complete email registration with WhatsApp verification
+   * Links WhatsApp-verified phone to email account
+   */
+  completeEmailRegistration: async (
+    email: string,
+    password: string,
+    profileData: ProfileData,
+    whatsappSession: Session,
+    avatarFile: ImageFile | null = null,
+  ): Promise<AuthResponse> => {
+    try {
+      // 1. Create email account
+      const { data: emailSignUp, error: emailError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: profileData.first_name,
+            last_name: profileData.last_name,
+            phone: profileData.phone,
+            avatar_url: profileData.avatar_url,
+            phone_verified: true, // Mark as phone verified
+          },
+        },
+      });
+
+      if (emailError) {
+        return {
+          user: null,
+          session: null,
+          error: emailError,
+        };
+      }
+
+      let avatarUrl: string | null = null;
+
+      // 2. Upload avatar if provided
+      if (avatarFile && emailSignUp.user) {
+        avatarUrl = await authService.uploadFile(
+          avatarFile,
+          emailSignUp.user.id,
+          avatarFile.type
+        );
+      }
+
+      // 3. Create profile in the profiles table
+      if (emailSignUp.user) {
+        try {
+          await supabase.from('profiles').upsert({
+            id: emailSignUp.user.id,
+            email,
+            first_name: profileData.first_name,
+            last_name: profileData.last_name,
+            phone: profileData.phone,
+            avatar_url: avatarUrl || profileData.avatar_url,
+            phone_verified: true,
+            updated_at: new Date(),
+          });
+        } catch (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
+      }
+
+      // 4. Use the WhatsApp session as the active session
+      if (whatsappSession) {
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(whatsappSession));
+      }
+
+      return {
+        user: emailSignUp?.user || null,
+        session: whatsappSession,
+        error: null,
+      };
+    } catch (err) {
+      console.error('Error completing email registration:', err);
+      return {
+        user: null,
+        session: null,
+        error: err as AuthError,
+      };
+    }
+  },
 };
 
 export default authService; 
