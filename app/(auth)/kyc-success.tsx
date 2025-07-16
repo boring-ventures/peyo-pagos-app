@@ -1,6 +1,7 @@
 import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
+import { BridgeProgressIndicator } from '@/app/components/bridge/BridgeProgressIndicator';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
 import { useAuthStore } from '@/app/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,40 +45,22 @@ export default function KycSuccessScreen() {
   }, []);
 
   const handleContinue = () => {
+    console.log('handleContinue');
     router.replace('/(auth)/biometric-setup');
   };
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.content}>
-        {/* Success Icon with Animation */}
-        <Animated.View
-          style={[
-            styles.iconContainer,
-            {
-              backgroundColor: successColor,
-              transform: [{ scale: scaleAnim }],
-            },
-          ]}
-        >
-          <Animated.View
-            style={{
-              opacity: checkmarkAnim,
-              transform: [
-                {
-                  scale: checkmarkAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.5, 1],
-                  }),
-                },
-              ],
-            }}
-          >
-            <Ionicons name="checkmark" size={60} color="white" />
-          </Animated.View>
+        {/* Success Icon */}
+        <Animated.View style={[styles.iconContainer, { transform: [{ scale: scaleAnim }] }]}>
+          <View style={[styles.checkCircle, { backgroundColor: successColor }]}>
+            <Animated.View style={{ opacity: checkmarkAnim }}>
+              <Ionicons name="checkmark" size={72} color="#FFF" />
+            </Animated.View>
+          </View>
         </Animated.View>
 
-        {/* Success Content */}
         <Animated.View style={[styles.textContent, { opacity: fadeAnim }]}>
           <ThemedText type="title" style={styles.title}>
             ¡Verificación Completada!
@@ -88,7 +71,7 @@ export default function KycSuccessScreen() {
           </ThemedText>
 
           {/* Completed Steps Summary */}
-          <View style={styles.summaryContainer}>
+          {/* <View style={styles.summaryContainer}>
             <View style={styles.summaryItem}>
               <Ionicons name="person-circle" size={24} color={tintColor} />
               <ThemedText style={styles.summaryText}>Información personal</ThemedText>
@@ -118,7 +101,20 @@ export default function KycSuccessScreen() {
               <ThemedText style={styles.summaryText}>Selfie</ThemedText>
               <Ionicons name="checkmark-circle" size={20} color={successColor} />
             </View>
-          </View>
+          </View> */}
+
+          {/* Bridge Integration Progress - Only show if Bridge is configured */}
+          {process.env.EXPO_PUBLIC_BRIDGE_API_KEY && (
+            <View style={styles.bridgeContainer}>
+              <ThemedText style={styles.bridgeTitle}>
+                Configurando tu Wallet
+              </ThemedText>
+              <BridgeProgressIndicator showOnlyWhenActive={false} />
+              <ThemedText style={styles.bridgeDescription}>
+                Estamos configurando tu wallet crypto automáticamente. Esto puede tardar unos momentos.
+              </ThemedText>
+            </View>
+          )}
         </Animated.View>
       </View>
 
@@ -126,7 +122,7 @@ export default function KycSuccessScreen() {
       <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim }]}>
         <ThemedButton
           title="Continuar a la App"
-          type="primary"
+          type="outline"
           size="large"
           onPress={handleContinue}
           style={styles.continueButton}
@@ -139,69 +135,95 @@ export default function KycSuccessScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+    maxWidth: 400,
   },
   iconContainer: {
+    marginBottom: 32,
+  },
+  checkCircle: {
     width: 120,
     height: 120,
     borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 32,
-    elevation: 8,
-    shadowColor: '#000',
+    shadowColor: '#4CAF50',
     shadowOffset: {
       width: 0,
       height: 4,
     },
     shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    shadowRadius: 8,
+    elevation: 8,
   },
   textContent: {
     alignItems: 'center',
-    marginBottom: 32,
+    width: '100%',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 16,
+    fontSize: 28,
+    fontWeight: 'bold',
   },
   subtitle: {
-    fontSize: 16,
     textAlign: 'center',
-    opacity: 0.8,
     marginBottom: 32,
-    maxWidth: '90%',
+    fontSize: 16,
     lineHeight: 24,
+    opacity: 0.8,
   },
   summaryContainer: {
     width: '100%',
-    maxWidth: 300,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
   },
   summaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
   },
   summaryText: {
     flex: 1,
     marginLeft: 12,
     fontSize: 14,
   },
+  bridgeContainer: {
+    width: '100%',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.2)',
+  },
+  bridgeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  bridgeDescription: {
+    fontSize: 13,
+    textAlign: 'center',
+    opacity: 0.7,
+    marginTop: 8,
+    lineHeight: 18,
+  },
   buttonContainer: {
-    paddingBottom: 16,
+    width: '100%',
+    paddingVertical: 24,
   },
   continueButton: {
-    marginTop: 16,
+    width: '100%',
   },
 }); 

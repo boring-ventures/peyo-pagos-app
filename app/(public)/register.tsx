@@ -77,23 +77,59 @@ export default function RegisterScreen() {
         selectedCountry.dial_code
       );
 
-      console.log("formattedPhone", formattedPhone);
+      console.log("📧 Step 1: Creating user with email+password in auth.users");
 
-      // Send WhatsApp OTP to phone number
-      const { error } = await authService.sendWhatsAppOTP(formattedPhone, 'signup');
-      
-      if (error) {
-        throw new Error(error.message);
+      // Step 1: Create user with email+password first (as per user specifications)
+      const { user, error: signUpError } = await authService.signUp(
+        values.email,
+        values.password,
+        {
+          email: values.email,
+          first_name: "", // Will be filled during KYC
+          last_name: "",  // Will be filled during KYC
+          phone: formattedPhone, // Store phone in metadata for later
+        }
+      );
+
+      if (signUpError) {
+        throw new Error(signUpError.message);
       }
 
-      // Navigate to OTP verification with phone parameter and email for account linking
+      if (!user) {
+        throw new Error('User creation failed');
+      }
+
+      console.log("✅ User created successfully with email+password:", user.id);
+      console.log("📱 Step 2: Initiating phone verification for existing user");
+
+      // Step 2: Initiate phone verification for existing user
+      const { error: otpError } = await authService.sendWhatsAppOTPToExistingUser(formattedPhone, user.id);
+      
+      if (otpError) {
+        // Si es un error de límite de Twilio, permitir continuar ya que el código se envía al dashboard
+        if (otpError.message && otpError.message.includes('exceeded the') && otpError.message.includes('daily messages limit')) {
+          console.log("⚠️ Error de límite de Twilio, pero puedes ver el código en el dashboard");
+          Alert.alert(
+            "SMS en Dashboard", 
+            "Límite de SMS alcanzado. Puedes ver el código de verificación en el dashboard de Twilio para continuar.",
+            [{ text: "Entendido" }]
+          );
+        } else {
+          throw new Error(otpError.message);
+        }
+      }
+
+      console.log("✅ OTP process completed. Check Twilio dashboard if needed:", formattedPhone);
+
+      // Navigate to OTP verification with user ID for phone verification
       router.push({
         pathname: "/(public)/otp-verification",
         params: { 
           phone: formattedPhone, 
           email: values.email,
           password: values.password,
-          purpose: 'signup' 
+          purpose: 'signup',
+          userId: user.id // Pass user ID for phone verification
         },
       } as any);
     } catch (error) {

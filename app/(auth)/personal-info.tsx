@@ -2,16 +2,17 @@ import { useRouter } from "expo-router";
 import { Formik } from "formik";
 import React from "react";
 import {
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  useColorScheme,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+    useColorScheme,
 } from "react-native";
 import * as Yup from "yup";
 
 import FormField from "@/app/components/FormField";
 import DatePickerField from "@/app/components/shared/DatePickerField";
+import DropdownSelector from "@/app/components/shared/DropdownSelector";
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
@@ -19,9 +20,25 @@ import { kycService } from "@/app/services/kycService";
 import { useKycStore } from "@/app/store";
 import { Ionicons } from "@expo/vector-icons";
 
+// Opciones de nacionalidades (código ISO 3166-1 de 3 caracteres)
+const nationalityOptions = [
+  { label: "Boliviana", value: "BOL" },
+  { label: "Guatemalteca", value: "GTM" },
+  { label: "Argentina", value: "ARG" },
+  { label: "Brasileña", value: "BRA" },
+  { label: "Chilena", value: "CHL" },
+  { label: "Colombiana", value: "COL" },
+  { label: "Ecuatoriana", value: "ECU" },
+  { label: "Paraguaya", value: "PRY" },
+  { label: "Peruana", value: "PER" },
+  { label: "Uruguaya", value: "URY" },
+  { label: "Venezolana", value: "VEN" },
+];
+
 const PersonalInfoSchema = Yup.object().shape({
   firstName: Yup.string().required("El nombre es requerido"),
   lastName: Yup.string().required("El apellido es requerido"),
+  nationality: Yup.string().required("La nacionalidad es requerida"),
   dateOfBirth: Yup.date()
     .required("La fecha de nacimiento es requerida")
     .max(new Date(), "La fecha de nacimiento no puede ser en el futuro"),
@@ -62,6 +79,7 @@ export default function PersonalInfoScreen() {
               initialValues={{
                 firstName: personalInfo.firstName || "",
                 lastName: personalInfo.lastName || "",
+                nationality: personalInfo.nationality || "",
                 dateOfBirth: personalInfo.dateOfBirth || "",
               }}
               validationSchema={PersonalInfoSchema}
@@ -80,6 +98,12 @@ export default function PersonalInfoScreen() {
                     formikProps={formikProps}
                     label="Primer Apellido"
                     placeholder="Ingresa tu primer apellido"
+                  />
+                  <DropdownSelector
+                    items={nationalityOptions}
+                    selectedValue={formikProps.values.nationality}
+                    onValueChange={(value) => formikProps.setFieldValue('nationality', value)}
+                    label="Nacionalidad"
                   />
                   <DatePickerField
                     name="dateOfBirth"

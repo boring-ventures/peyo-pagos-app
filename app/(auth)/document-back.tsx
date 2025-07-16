@@ -1,6 +1,7 @@
 import DocumentCamera from '@/app/components/kyc/DocumentCamera';
 import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
+import { kycService } from '@/app/services/kycService';
 import { useKycStore } from '@/app/store';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -12,9 +13,19 @@ export default function DocumentBackScreen() {
   const router = useRouter();
   const { uploadDocument } = useKycStore();
 
-  const handlePictureTaken = (base64: string) => {
-    uploadDocument({ type: 'idBack', file: base64 });
-    router.push('./selfie-capture');
+  const handlePictureTaken = async (base64: string) => {
+    console.log("📄 Handling back document picture...");
+    try {
+      // Wait for document upload to complete
+      await uploadDocument({ type: 'idBack', file: base64 });
+      console.log("✅ Back document uploaded successfully");
+      // Use advanceToNextStep to properly move from document_upload to selfie step
+      await kycService.advanceToNextStep('document_upload');
+      router.push('./selfie-capture');
+    } catch (error) {
+      console.error("❌ Error uploading back document:", error);
+      // Could show error alert here
+    }
   };
 
   return (

@@ -23,9 +23,9 @@ export interface EconomicActivity {
 }
 
 export interface KycDocuments {
-  idFront: string | null;
-  idBack: string | null;
-  selfie: string | null;
+  idFront: string | null; // File path in Supabase storage
+  idBack: string | null;  // File path in Supabase storage
+  selfie: string | null;  // File path in Supabase storage
 }
 
 export interface KycState {
@@ -43,7 +43,7 @@ export interface KycActions {
   updatePersonalInfo: (data: Partial<PersonalInfo>) => void;
   updateAddressInfo: (data: Partial<AddressInfo>) => void;
   updateEconomicActivity: (data: Partial<EconomicActivity>) => void;
-  uploadDocument: (payload: { type: keyof KycDocuments, file: string }) => void;
+  uploadDocument: (payload: { type: keyof KycDocuments, file: string }) => Promise<void>; // Now async
   setCurrentStep: (step: KycStep) => void;
   completeVerification: () => Promise<void>;
   validateStep: (step: KycStep) => Promise<boolean>;

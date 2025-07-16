@@ -10,6 +10,8 @@ type ProfileState = {
   email: string;
   phone?: string;
   avatar_url?: string;
+  status?: 'active' | 'disabled' | 'deleted';
+  role?: 'USER' | 'SUPERADMIN';
 };
 
 type AuthState = {
@@ -78,6 +80,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const dbProfile = await authService.getProfile(user.id);
           if (dbProfile) {
             profileData = dbProfile;
+            console.log('✅ Profile found in database');
+          } else {
+            console.log('⚠️ No profile in database yet (might be during registration flow)');
+            // Use user metadata as fallback during registration flow
+            profileData = {
+              first_name: userData?.first_name || '',
+              last_name: userData?.last_name || '',
+              email: user.email || '',
+              phone: userData?.phone || user.phone || '',
+              avatar_url: userData?.avatar_url,
+              status: 'active', // Default status during registration
+              role: 'USER',     // Default role for regular users
+            };
           }
         }
 
@@ -85,10 +100,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           user,
           profile: {
-            first_name: profileData.first_name,
-            last_name: profileData.last_name,
+            first_name: profileData.first_name || '',
+            last_name: profileData.last_name || '',
             email: user.email || profileData.email || "",
+            phone: profileData.phone || user.phone || "",
             avatar_url: profileData.avatar_url,
+            status: profileData.status || 'active',
+            role: profileData.role || 'USER',
           },
         });
 
@@ -102,14 +120,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const user = session.user;
         const userData = user.user_metadata as ProfileState;
 
+        // También obtener el perfil completo desde la base de datos
+        let profileData = userData;
+        if (user.id) {
+          const dbProfile = await authService.getProfile(user.id);
+          if (dbProfile) {
+            profileData = dbProfile;
+            console.log('✅ Profile found in database');
+          } else {
+            console.log('⚠️ No profile in database yet (might be during registration flow)');
+            // Use user metadata as fallback during registration flow
+            profileData = {
+              first_name: userData?.first_name || '',
+              last_name: userData?.last_name || '',
+              email: user.email || '',
+              phone: userData?.phone || user.phone || '',
+              avatar_url: userData?.avatar_url,
+              status: 'active', // Default status during registration
+              role: 'USER',     // Default role for regular users
+            };
+          }
+        }
+
         set({
           isAuthenticated: true,
           user,
           profile: {
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-            email: user.email || "",
-            avatar_url: userData.avatar_url,
+            first_name: profileData.first_name || '',
+            last_name: profileData.last_name || '',
+            email: user.email || profileData.email || "",
+            phone: profileData.phone || user.phone || "",
+            avatar_url: profileData.avatar_url,
+            status: profileData.status || 'active',
+            role: profileData.role || 'USER',
           },
         });
 

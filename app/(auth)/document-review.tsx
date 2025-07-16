@@ -2,6 +2,7 @@ import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
 import { useThemedAsset } from '@/app/hooks/useThemedAsset';
+import { kycService } from '@/app/services/kycService';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -15,7 +16,9 @@ export default function VerificationSuccessScreen() {
     require('@/assets/images/icon-dark.png')
   );
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    // Complete the selfie step and trigger KYC completion
+    await kycService.advanceToNextStep('selfie');
     router.replace('/(auth)/kyc-success');
   };
 

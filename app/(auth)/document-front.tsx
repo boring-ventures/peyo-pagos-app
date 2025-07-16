@@ -12,9 +12,18 @@ export default function DocumentFrontScreen() {
   const router = useRouter();
   const { uploadDocument } = useKycStore();
 
-  const handlePictureTaken = (base64: string) => {
-    uploadDocument({ type: 'idFront', file: base64 });
-    router.push('./document-back');
+  const handlePictureTaken = async (base64: string) => {
+    console.log("📄 Handling front document picture...");
+    try {
+      // Wait for document upload to complete
+      await uploadDocument({ type: 'idFront', file: base64 });
+      console.log("✅ Front document uploaded successfully");
+      // Navigate to document-back only after successful upload
+      router.push('./document-back');
+    } catch (error) {
+      console.error("❌ Error uploading front document:", error);
+      // Could show error alert here
+    }
   };
 
   return (

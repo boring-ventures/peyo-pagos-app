@@ -1,3 +1,4 @@
+import { useKycStore } from '@/app/store';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import React, { useEffect, useRef, useState } from 'react';
@@ -16,6 +17,7 @@ const DocumentCamera: React.FC<DocumentCameraProps> = ({ onPictureTaken, overlay
   const [permission, requestPermission] = useCameraPermissions();
   const [preview, setPreview] = useState<string | null>(null);
   const [base64, setBase64] = useState<string | null>(null);
+  const { isLoading } = useKycStore();
   const cameraRef = useRef<CameraView>(null);
 
   useEffect(() => {
@@ -33,10 +35,21 @@ const DocumentCamera: React.FC<DocumentCameraProps> = ({ onPictureTaken, overlay
   };
 
   const confirmPicture = () => {
+    console.log("base64", base64 ? "yes" : "no");
     if (base64) {
+      console.log("onPictureTaken");
       onPictureTaken(base64);
     }
   };
+
+  // Show loading screen while uploading document
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ThemedText style={styles.loadingText}>Subiendo documento...</ThemedText>
+      </View>
+    );
+  }
 
   if (!permission) {
     // Camera permissions are still loading.
@@ -204,6 +217,16 @@ const styles = StyleSheet.create({
   previewImage: {
     flex: 1,
     width: '100%',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 20,
   },
 });
 

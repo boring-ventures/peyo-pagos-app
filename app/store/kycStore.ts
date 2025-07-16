@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { authService } from '../services/authService';
 import { AddressInfo, EconomicActivity, KycActions, KycDocuments, KycState, KycStep, PersonalInfo } from '../types/KycTypes';
+import { useAuthStore } from './authStore';
 
 type KycStore = KycState & KycActions;
 
@@ -29,13 +31,44 @@ const useKycStore = create<KycStore>()(
       updateAddressInfo: (data: Partial<AddressInfo>) => set(state => ({ addressInfo: { ...state.addressInfo, ...data } })),
       updateEconomicActivity: (data: Partial<EconomicActivity>) => set(state => ({ economicActivity: { ...state.economicActivity, ...data } })),
       
-      uploadDocument: (payload: { type: keyof KycDocuments; file: string; }) => {
-        set(state => ({
-            documents: {
+      uploadDocument: async (payload: { type: keyof KycDocuments; file: string; }) => {
+        try {
+          set({ isLoading: true });
+          console.log(`📄 Uploading ${payload.type} document to storage...`);
+          
+          // Get current user
+          const { user } = useAuthStore.getState();
+          if (!user) {
+            console.error('❌ No user found for document upload');
+            set({ isLoading: false });
+            return;
+          }
+
+          // Upload document to Supabase storage
+          const filePath = await authService.uploadKycDocument(
+            payload.file,
+            user.id,
+            payload.type
+          );
+
+          if (filePath) {
+            // Store file path instead of base64
+            set(state => ({
+              documents: {
                 ...state.documents,
-                [payload.type]: payload.file
-            }
-        }))
+                [payload.type]: filePath
+              },
+              isLoading: false
+            }));
+            console.log(`✅ ${payload.type} document uploaded successfully: ${filePath}`);
+          } else {
+            console.error(`❌ Failed to upload ${payload.type} document`);
+            set({ isLoading: false });
+          }
+        } catch (error) {
+          console.error(`💥 Error uploading ${payload.type} document:`, error);
+          set({ isLoading: false });
+        }
       },
 
       setCurrentStep: (step: KycStep) => set({ currentStep: step }),

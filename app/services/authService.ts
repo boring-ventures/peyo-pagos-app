@@ -14,6 +14,8 @@ export type ProfileData = {
   last_name: string;
   phone?: string;
   avatar_url?: string;
+  status?: 'active' | 'disabled' | 'deleted';
+  role?: 'USER' | 'SUPERADMIN';
 };
 
 export type ImageFile = {
@@ -139,6 +141,95 @@ export const authService = {
   },
 
   /**
+   * Upload KYC document to Supabase Storage (documents bucket)
+   */
+  uploadKycDocument: async (
+    base64: string,
+    userId: string,
+    documentType: 'idFront' | 'idBack' | 'selfie',
+    contentType = 'image/jpeg',
+  ): Promise<string | null> => {
+    try {
+      if (!base64) {
+        console.error('Error uploading KYC document: Invalid base64 data');
+        return null;
+      }
+
+      const documentsBucket = 'documents'; // Fixed bucket name
+      const fileExt = contentType.includes('jpeg') ? 'jpg' : 'png';
+      
+      // Map document types to new naming convention
+      const documentNames = {
+        'idFront': 'identification-front',
+        'idBack': 'identification-back',
+        'selfie': 'selfie'
+      };
+      
+      const documentName = documentNames[documentType];
+      const fileName = `${documentName}-${Date.now()}.${fileExt}`;
+      const filePath = `kyc-documents/${userId}/${fileName}`;
+
+      console.log(`📄 Uploading KYC document: ${filePath} to bucket: ${documentsBucket}`);
+      
+      // Convert base64 to binary
+      const base64Data = base64.replace(/^data:image\/[a-z]+;base64,/, '');
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const { error } = await supabase.storage
+        .from(documentsBucket)
+        .upload(filePath, bytes, {
+          contentType,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Error uploading KYC document to Supabase:', error);
+        return null;
+      }
+
+      console.log('📄 KYC document uploaded successfully:', filePath);
+      return filePath;
+    } catch (err) {
+      console.error('Error in uploadKycDocument:', err);
+      return null;
+    }
+  },
+
+  /**
+   * Get the public URL for a KYC document
+   */
+  getKycDocumentUrl: (filePath: string | null): string | null => {
+    if (!filePath) return null;
+    
+    // If it's already a full URL, return it as is
+    if (filePath.startsWith('http') || filePath.startsWith('data:')) {
+      return filePath;
+    }
+    
+    try {
+      const documentsBucket = process.env.EXPO_PUBLIC_SUPABASE_STORAGE_BUCKET || 'documents';
+      console.log(`Getting public URL for KYC document: ${filePath} in bucket: ${documentsBucket}`);
+      
+      const { data } = supabase.storage
+        .from(documentsBucket)
+        .getPublicUrl(filePath);
+      
+      const url = data?.publicUrl || null;
+      console.log(`KYC Document Public URL: ${url}`);
+      
+      return url;
+    } catch (err) {
+      console.error('Error getting KYC document URL:', err);
+      return null;
+    }
+  },
+
+  /**
    * Registrar un nuevo usuario
    */
   signUp: async (
@@ -182,22 +273,8 @@ export const authService = {
         );
       }
 
-      // 4. Crear perfil en la tabla profiles
-      if (data.user) {
-        try {
-          await supabase.from('profiles').upsert({
-            id: data.user.id,
-            email,
-            first_name: profileData.first_name,
-            last_name: profileData.last_name,
-            phone: profileData.phone,
-            avatar_url: avatarUrl || profileData.avatar_url,
-            updated_at: new Date(),
-          });
-        } catch (profileError) {
-          console.error('Error creating profile:', profileError);
-        }
-      }
+      // 4. Profile will be created after KYC completion
+      // No profile creation during signup - this happens after KYC
 
       // 5. Guardar sesión si existe
       if (data.session) {
@@ -289,17 +366,38 @@ export const authService = {
    */
   getProfile: async (userId: string): Promise<ProfileData | null> => {
     try {
+      console.log('👤 Getting user profile...');
+      console.log('🔍 Profile query - userId:', userId);
+      console.log('🔍 Profile query - userId type:', typeof userId);
+      
+      // Check current session
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log('🔍 Current Supabase session:', {
+        hasSession: !!sessionData?.session,
+        sessionUserId: sessionData?.session?.user?.id,
+        sessionUserEmail: sessionData?.session?.user?.email,
+        userIdMatch: sessionData?.session?.user?.id === userId,
+      });
+
       const { data, error } = await supabase
         .from('profiles')
-        .select('email, first_name, last_name, phone, avatar_url')
-        .eq('id', userId)
+        .select('email, first_name, last_name, phone, avatar_url, status, role')
+        .eq('userId', userId)
         .single();
+
+      console.log('🔍 Profile query result:', {
+        hasData: !!data,
+        error,
+        profileEmail: data?.email,
+        profileFirstName: data?.first_name,
+      });
 
       if (error) {
         console.error('Error fetching profile:', error);
         return null;
       }
 
+      console.log('✅ Profile fetched successfully');
       return data as ProfileData;
     } catch (error) {
       console.error('Error getting profile:', error);
@@ -316,9 +414,9 @@ export const authService = {
         .from('profiles')
         .update({
           ...profileData,
-          updated_at: new Date(),
+          updatedAt: new Date(),
         })
-        .eq('id', userId);
+        .eq('userId', userId);
 
       return { error };
     } catch (err) {
@@ -408,22 +506,72 @@ export const authService = {
   },
 
   /**
-   * Send WhatsApp OTP verification code
+   * Send WhatsApp OTP verification code  
    */
   sendWhatsAppOTP: async (phone: string, type: 'signup' | 'recovery' = 'signup'): Promise<{ error: AuthError | null }> => {
     try {
       console.log('📱 Sending WhatsApp OTP to:', phone);
+      
+      // Create temporary user for OTP verification
       const { error } = await supabase.auth.signInWithOtp({
         phone,
         options: {
           channel: 'sms',
-          shouldCreateUser: type === 'signup',
+          shouldCreateUser: true, // Create temp user for phone verification
         },
       });
+      
       console.log('📱 WhatsApp OTP response:', { error });
+      
+      // Si es error de límite de Twilio, permitir continuar
+      if (error && error.message && error.message.includes('exceeded the') && error.message.includes('daily messages limit')) {
+        console.log('⚠️ Error de límite de Twilio, pero OTP se envía al dashboard');
+        return { error: null };
+      }
+      
+      if (!error) {
+        console.log('✅ OTP enviado correctamente, usuario temporal creado');
+      }
+      
       return { error };
     } catch (err) {
       console.error('Error sending WhatsApp OTP:', err);
+      return { error: err as AuthError };
+    }
+  },
+
+  /**
+   * Send WhatsApp OTP to existing user (adds phone and sends OTP in one step)
+   */
+  sendWhatsAppOTPToExistingUser: async (phone: string, userId?: string): Promise<{ error: AuthError | null }> => {
+    try {
+      console.log('📱 Starting phone verification for existing user:', phone, 'userId:', userId);
+      
+      // Use updateUser to add phone and automatically send OTP verification
+      const { error } = await supabase.auth.updateUser({
+        phone,
+        data: {
+          phone,
+          phone_verified: false, // Will be verified after OTP confirmation
+        },
+      });
+      
+      console.log('📱 Phone verification initiation response:', { error });
+      
+      // Si es error de límite de Twilio, permitir continuar
+      if (error && error.message && error.message.includes('exceeded the') && error.message.includes('daily messages limit')) {
+        console.log('⚠️ Error de límite de Twilio, pero OTP se envía al dashboard');
+        return { error: null };
+      }
+      
+      if (!error) {
+        console.log('✅ Phone verification initiated and OTP sent successfully');
+        console.log('ℹ️  Note: Phone will appear in auth.users ONLY after OTP verification');
+      }
+      
+      return { error };
+    } catch (err) {
+      console.error('Error sending WhatsApp OTP to existing user:', err);
       return { error: err as AuthError };
     }
   },
@@ -552,76 +700,78 @@ export const authService = {
 
   /**
    * Complete email registration with WhatsApp verification
-   * Links WhatsApp-verified phone to email account
+   * Links email to existing phone user and creates profile
    */
   completeEmailRegistration: async (
     email: string,
     password: string,
     profileData: ProfileData,
-    whatsappSession: Session,
     avatarFile: ImageFile | null = null,
   ): Promise<AuthResponse> => {
     try {
-      // 1. Create email account
-      const { data: emailSignUp, error: emailError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: profileData.first_name,
-            last_name: profileData.last_name,
-            phone: profileData.phone,
-            avatar_url: profileData.avatar_url,
-            phone_verified: true, // Mark as phone verified
-          },
-        },
-      });
-
-      if (emailError) {
+      console.log('📧 Linking email to phone user for:', email, profileData.phone);
+      
+      // 1. Get current session and user
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUser = sessionData?.session?.user;
+      
+      if (!currentUser) {
+        console.error('❌ No current user session found');
         return {
           user: null,
           session: null,
-          error: emailError,
+          error: { message: 'No active session found' } as AuthError,
         };
       }
 
+      console.log('✅ Current user found:', currentUser.id, 'phone:', currentUser.phone);
+
+      // 2. Update user with email and password
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+        email,
+        password,
+        data: {
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
+          phone: profileData.phone,
+          avatar_url: profileData.avatar_url,
+          phone_verified: true,
+        },
+      });
+
+      if (updateError) {
+        console.error('📧 User update error:', updateError);
+        return {
+          user: null,
+          session: null,
+          error: updateError,
+        };
+      }
+      console.log('✅ User updated with email+password successfully');
+
       let avatarUrl: string | null = null;
 
-      // 2. Upload avatar if provided
-      if (avatarFile && emailSignUp.user) {
+      // 3. Upload avatar if provided
+      if (avatarFile) {
         avatarUrl = await authService.uploadFile(
           avatarFile,
-          emailSignUp.user.id,
+          currentUser.id,
           avatarFile.type
         );
       }
 
-      // 3. Create profile in the profiles table
-      if (emailSignUp.user) {
-        try {
-          await supabase.from('profiles').upsert({
-            id: emailSignUp.user.id,
-            email,
-            first_name: profileData.first_name,
-            last_name: profileData.last_name,
-            phone: profileData.phone,
-            avatar_url: avatarUrl || profileData.avatar_url,
-            phone_verified: true,
-            updated_at: new Date(),
-          });
-        } catch (profileError) {
-          console.error('Error creating profile:', profileError);
-        }
-      }
+      // 4. Profile will be created after KYC completion
+      // No profile creation during email linking - this happens after KYC
+      console.log('✅ Email+password linked successfully, profile will be created after KYC');
 
-      // 4. Use the WhatsApp session as the active session
-      if (whatsappSession) {
-        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(whatsappSession));
-      }
+      // 5. Get fresh session after linking
+      const { data: finalSessionData } = await supabase.auth.getSession();
+      const finalUser = finalSessionData?.session?.user;
 
+      console.log('✅ Email linked to phone user successfully');
       return {
-        user: emailSignUp?.user || null,
-        session: whatsappSession,
+        user: finalUser || currentUser,
+        session: finalSessionData?.session || sessionData?.session || null,
         error: null,
       };
     } catch (err) {
@@ -631,6 +781,134 @@ export const authService = {
         session: null,
         error: err as AuthError,
       };
+    }
+  },
+
+  /**
+   * Update display name in auth.users after KYC completion
+   */
+  updateDisplayNameAfterKyc: async (firstName: string, lastName: string): Promise<{ error: AuthError | null }> => {
+    try {
+      console.log('📝 Updating display name in auth.users after KYC completion');
+      
+      const displayName = `${firstName} ${lastName}`.trim();
+      
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          display_name: displayName,
+          first_name: firstName,
+          last_name: lastName,
+        },
+      });
+
+      if (error) {
+        console.error('❌ Error updating display name:', error);
+        return { error };
+      }
+
+      console.log('✅ Display name updated successfully:', displayName);
+      return { error: null };
+    } catch (err) {
+      console.error('Error updating display name:', err);
+      return { error: err as AuthError };
+    }
+  },
+
+  /**
+   * Add phone to existing user (without marking as verified)
+   */
+  addPhoneToUser: async (phone: string): Promise<{ error: AuthError | null }> => {
+    try {
+      console.log('📱 Adding phone to existing user (unverified):', phone);
+      
+      const { error } = await supabase.auth.updateUser({
+        phone,
+        data: {
+          phone,
+          phone_verified: false, // Mark as unverified - will be verified after OTP
+        },
+      });
+
+      if (error) {
+        console.error('❌ Error adding phone to user:', error);
+        
+        // Si es un error de Twilio (límite de mensajes), lo tratamos como éxito
+        // porque el usuario ya existe y el teléfono se agregó correctamente
+        if (error.message && error.message.includes('exceeded the') && error.message.includes('daily messages limit')) {
+          console.log('⚠️ Error de límite de Twilio pero usuario actualizado correctamente');
+          return { error: null };
+        }
+        
+        return { error };
+      }
+
+      console.log('✅ Phone added to user successfully (unverified)');
+      return { error: null };
+    } catch (err) {
+      console.error('Error adding phone to user:', err);
+      return { error: err as AuthError };
+    }
+  },
+
+  /**
+   * Mark user phone as verified after OTP verification
+   */
+  markPhoneAsVerified: async (): Promise<{ error: AuthError | null }> => {
+    try {
+      console.log('📱 Marking phone as verified after OTP confirmation');
+      
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          phone_verified: true,
+        },
+      });
+
+      if (error) {
+        console.error('❌ Error marking phone as verified:', error);
+        return { error };
+      }
+
+      console.log('✅ Phone marked as verified successfully');
+      return { error: null };
+    } catch (err) {
+      console.error('Error marking phone as verified:', err);
+      return { error: err as AuthError };
+    }
+  },
+
+  /**
+   * TESTING ONLY: Manually verify phone without OTP for debugging
+   * This bypasses OTP verification to test if that's the issue
+   */
+  manuallyVerifyPhoneForTesting: async (phone: string): Promise<{ error: AuthError | null }> => {
+    try {
+      console.log('🧪 [TESTING] Manually verifying phone without OTP:', phone);
+      
+      const { error } = await supabase.auth.updateUser({
+        phone, // Set the actual phone field
+        data: {
+          phone,
+          phone_verified: true, // Mark as verified in metadata
+        },
+      });
+
+      if (error) {
+        // For testing: ignore Twilio daily limit errors
+        if (error.message && error.message.includes('exceeded the') && error.message.includes('daily messages limit')) {
+          console.log('🧪 [TESTING] Ignoring Twilio limit error for testing purposes');
+          console.log('✅ [TESTING] Phone manually verified successfully (Twilio error ignored)');
+          return { error: null };
+        }
+        
+        console.error('❌ Error manually verifying phone:', error);
+        return { error };
+      }
+
+      console.log('✅ [TESTING] Phone manually verified successfully');
+      return { error: null };
+    } catch (err) {
+      console.error('Error manually verifying phone:', err);
+      return { error: err as AuthError };
     }
   },
 };

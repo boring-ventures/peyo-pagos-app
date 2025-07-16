@@ -12,9 +12,18 @@ export default function SelfieCaptureScreen() {
   const router = useRouter();
   const { uploadDocument } = useKycStore();
 
-  const handlePictureTaken = (base64: string) => {
-    uploadDocument({ type: 'selfie', file: base64 });
-    router.push('./document-review');
+  const handlePictureTaken = async (base64: string) => {
+    console.log("📷 Handling selfie picture...");
+    try {
+      // Wait for selfie upload to complete
+      await uploadDocument({ type: 'selfie', file: base64 });
+      console.log("✅ Selfie uploaded successfully");
+      // Navigate to document-review, which will handle the final KYC completion
+      router.push('./document-review');
+    } catch (error) {
+      console.error("❌ Error uploading selfie:", error);
+      // Could show error alert here
+    }
   };
 
   return (

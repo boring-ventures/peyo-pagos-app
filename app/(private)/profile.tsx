@@ -1,3 +1,4 @@
+import { BridgeIntegrationCard } from '@/app/components/bridge/BridgeIntegrationCard';
 import { ProfileInfoRow } from '@/app/components/ProfileInfoRow';
 import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedText } from '@/app/components/ThemedText';
@@ -37,6 +38,11 @@ export default function ProfileScreen() {
     router.push('/(private)/edit-profile');
   };
 
+  const handleViewWallets = () => {
+    // Could navigate to a dedicated wallets screen
+    Alert.alert('Bridge Wallets', 'Función de wallets Bridge será implementada próximamente');
+  };
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView 
@@ -48,35 +54,30 @@ export default function ProfileScreen() {
         <View style={styles.avatarContainer}>
           <UserAvatar 
             imageUrl={profile?.avatar_url} 
-            firstName={profile?.first_name}
-            lastName={profile?.last_name}
-            size={120}
+            size={100}
           />
-          <ThemedText type="title" style={styles.userName}>
-            {profile?.first_name} {profile?.last_name}
+          
+          <ThemedText type="title" style={styles.displayName}>
+            {`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Usuario'}
           </ThemedText>
-          <ThemedText style={styles.userEmail}>{user?.email}</ThemedText>
+          
+          <ThemedText style={styles.email}>
+            {user?.email}
+          </ThemedText>
         </View>
 
         {/* Action Buttons */}
-        <View style={styles.actionButtonsContainer}>
+        <View style={styles.buttonContainer}>
           <ThemedButton
             title="Editar Perfil"
-            onPress={handleEditProfile}
             type="outline"
+            onPress={handleEditProfile}
             style={styles.actionButton}
           />
           <ThemedButton
-            title="Cerrar Sesión"
-            onPress={handleLogout}
-            loading={isLoading}
-            type="primary"
-            style={styles.actionButton}
-          />
-          <ThemedButton
-            title="Seguridad"
-            onPress={() => router.push('/(private)/security-settings' as any)}
-            type="secondary"
+            title="Configuración"
+            type="outline"
+            onPress={() => router.push('/(private)/security-settings')}
             style={styles.actionButton}
           />
         </View>
@@ -104,6 +105,15 @@ export default function ProfileScreen() {
           />
         </View>
 
+        {/* Bridge Integration Section */}
+        <View style={styles.sectionContainer}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Bridge Wallet Integration
+          </ThemedText>
+          
+          <BridgeIntegrationCard onViewWallets={handleViewWallets} />
+        </View>
+
         {/* Preferences Section */}
         <View style={styles.sectionContainer}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -123,6 +133,17 @@ export default function ProfileScreen() {
             icon="language-outline"
           />
         </View>
+
+        {/* Logout Button */}
+        <View style={styles.logoutContainer}>
+          <ThemedButton
+            title="Cerrar Sesión"
+            type="primary"
+            onPress={handleLogout}
+            loading={isLoading}
+            style={styles.logoutButton}
+          />
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -136,39 +157,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingVertical: 20,
   },
   avatarContainer: {
     alignItems: 'center',
-    marginVertical: 20,
+    marginBottom: 30,
+    paddingHorizontal: 20,
   },
-  userName: {
-    fontSize: 24,
-    marginTop: 15,
+  displayName: {
+    marginTop: 16,
     textAlign: 'center',
   },
-  userEmail: {
-    fontSize: 16,
-    opacity: 0.7,
+  email: {
     marginTop: 4,
     textAlign: 'center',
+    opacity: 0.8,
   },
-  actionButtonsContainer: {
+  buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginVertical: 20,
+    paddingHorizontal: 20,
+    marginBottom: 30,
+    gap: 10,
   },
   actionButton: {
-    marginHorizontal: 8,
-    minWidth: 140,
+    flex: 1,
   },
   sectionContainer: {
-    marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 30,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 18,
-    marginBottom: 15,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  logoutContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 40,
+  },
+  logoutButton: {
+    width: '100%',
   },
 }); 
