@@ -21,6 +21,7 @@ import { useAuth } from "@/app/components/AuthContext";
 import { Strings } from "@/app/constants/Strings";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
 import { biometricService } from "@/app/services/biometricService";
+import { useAuthStore } from "@/app/store/authStore";
 import useSettingsStore from "@/app/store/settingsStore";
 
 // Validation schema with Yup
@@ -33,7 +34,7 @@ const LoginSchema = Yup.object().shape({
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const iconColor = useThemeColor({}, "icon");
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
@@ -61,26 +62,84 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      // Mock login - accept any email/password combination with 6+ chars
-      if (values.email.includes('@') && values.password.length >= 6) {
-        // Simulate async login
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
+      console.log('🔐 Attempting login with comprehensive validation...');
+      
       const success = await login(values.email, values.password);
 
-        if (success) {
-          // Check if PIN is required after successful login
+      if (success) {
+        console.log('✅ Login successful, determining next step...');
+        
+        // Get current auth state to determine redirection
+        const { user, profile, kycStatus } = useAuthStore.getState();
+        
+        if (!user || !profile) {
+          console.error('❌ No user/profile data after login');
+          Alert.alert(Strings.common.error, 'Error loading user data');
+          return;
+        }
+
+        console.log('📋 User login details:', {
+          userId: user.id,
+          email: user.email,
+          role: profile.role,
+          status: profile.status,
+          kycStatus
+        });
+
+        // Determine redirect based on user role and status
+        if (profile.role === 'SUPERADMIN') {
+          console.log('👑 SUPERADMIN login - redirecting to home');
           if (pinEnabled) {
             router.replace('/(private)/enter-pin');
           } else {
             router.replace('/(private)/home');
           }
+          return;
+        }
+
+        // For regular users, check KYC status
+        if (profile.role === 'USER') {
+          switch (kycStatus) {
+            case 'completed':
+              console.log('✅ KYC completed - redirecting to home');
+              if (pinEnabled) {
+                router.replace('/(private)/enter-pin');
+              } else {
+                router.replace('/(private)/home');
+              }
+              break;
+              
+            case 'in_progress':
+              console.log('⏳ KYC in review - redirecting to pending screen');
+              router.replace('/(auth)/kyc-pending');
+              break;
+              
+            case 'rejected':
+              console.log('❌ KYC rejected - showing error');
+              Alert.alert(
+                'KYC Rejected', 
+                'Your KYC verification was rejected. Please contact support for assistance.',
+                [{ text: 'OK', onPress: () => logout() }]
+              );
+              break;
+              
+            case 'pending':
+            default:
+              console.log('📋 KYC required - redirecting to welcome');
+              router.replace('/(auth)/welcome');
+              break;
+          }
         }
       } else {
-        Alert.alert(Strings.common.error, 'Credenciales inválidas');
+        // Login failed - error should already be set in store
+        const { error } = useAuthStore.getState();
+        Alert.alert(
+          Strings.common.error, 
+          error || 'Login failed. Please check your credentials.'
+        );
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("💥 Login error:", error);
       Alert.alert(Strings.common.error, Strings.auth.errors.loginFailed);
     } finally {
       setIsLoading(false);

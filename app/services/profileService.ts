@@ -263,25 +263,160 @@ export const profileService = {
         return null;
       }
 
-      if (profile) {
-        console.log('✅ Profile found for Bridge integration');
-        console.log('🔍 Profile structure:', {
-          id: profile.id,
-          userId: profile.userId,
-          email: profile.email,
-          firstName: profile.first_name,
-          lastName: profile.last_name,
-          kycProfileExists: !!profile.kycProfile,
-          addressExists: !!profile.kycProfile?.address,
-          documentsCount: profile.kycProfile?.documents?.length || 0,
-          identifyingInfoCount: profile.kycProfile?.identifyingInfo?.length || 0
-        });
+      if (!profile) {
+        console.warn('⚠️ No profile found for Bridge integration');
+        return null;
       }
 
+      console.log('✅ Profile data fetched successfully for Bridge integration');
       return profile;
+
     } catch (error) {
-      console.error('💥 Error getting profile for Bridge:', error);
+      console.error('💥 Error in getProfileForBridge:', error);
       return null;
+    }
+  },
+
+  /**
+   * Save Bridge raw response to database
+   */
+  saveBridgeRawResponse: async (userId: string, bridgeResponse: any): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🌉 Updating bridge_raw_response in database...', { userId });
+      
+      // Find the profile first
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', userId)
+        .single();
+
+      if (profileError || !profile) {
+        return { success: false, error: `Profile not found: ${profileError?.message}` };
+      }
+
+      const { error } = await supabaseAdmin
+        .from('kyc_profiles')
+        .update({
+          bridge_raw_response: bridgeResponse,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('profile_id', profile.id);
+
+      if (error) {
+        console.error('❌ Bridge raw response update error:', error);
+        return { success: false, error: `Bridge raw response update failed: ${error.message}` };
+      }
+
+      console.log('✅ Bridge raw response saved to database successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('💥 Error saving Bridge raw response:', err);
+      return { success: false, error: `Bridge raw response save failed: ${err instanceof Error ? err.message : 'Unknown error'}` };
+    }
+  },
+
+  /**
+   * Save Bridge endorsements to database
+   */
+  saveBridgeEndorsements: async (userId: string, endorsements: any[]): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('📝 Saving Bridge endorsements to database...', { userId, endorsementsCount: endorsements.length });
+      
+      // Get KYC profile ID
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', userId)
+        .single();
+
+      if (profileError || !profile) {
+        return { success: false, error: `Profile not found: ${profileError?.message}` };
+      }
+
+      const { data: kycProfile, error: kycError } = await supabaseAdmin
+        .from('kyc_profiles')
+        .select('id')
+        .eq('profile_id', profile.id)
+        .single();
+
+      if (kycError || !kycProfile) {
+        return { success: false, error: `KYC profile not found: ${kycError?.message}` };
+      }
+
+      // Prepare endorsements data with proper field mapping
+      const endorsementsData = endorsements.map((endorsement) => ({
+        id: createId(),
+        kyc_profile_id: kycProfile.id,
+        endorsement_type: endorsement.name || 'base', // Use database field name for direct SQL
+        status: endorsement.status || 'incomplete',
+        requirements: endorsement.requirements || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+
+      const { error: endorsementsError } = await supabaseAdmin
+        .from('endorsements')
+        .insert(endorsementsData);
+
+      if (endorsementsError) {
+        console.error('❌ Endorsements insert error:', endorsementsError);
+        return { success: false, error: `Endorsements insert failed: ${endorsementsError.message}` };
+      }
+
+      console.log('✅ Bridge endorsements saved to database successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('💥 Error saving Bridge endorsements:', err);
+      return { success: false, error: `Bridge endorsements save failed: ${err instanceof Error ? err.message : 'Unknown error'}` };
+    }
+  },
+
+  /**
+   * Save all Bridge data (customer ID, raw response, and endorsements) in one operation
+   */
+  saveBridgeData: async (userId: string, bridgeResponse: any): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🌉 Saving all Bridge data to database...', { userId, bridgeCustomerId: bridgeResponse.id });
+      
+      // 1. Save customer ID
+      const customerIdResult = await profileService.updateBridgeCustomerId(userId, bridgeResponse.id);
+      
+      // 2. Save raw response
+      const rawResponseResult = await profileService.saveBridgeRawResponse(userId, bridgeResponse);
+      
+      // 3. Save endorsements if they exist
+      let endorsementsResult: { success: boolean; error?: string } = { success: true };
+      if (bridgeResponse.endorsements && Array.isArray(bridgeResponse.endorsements)) {
+        console.log('📝 Saving Bridge endorsements...', { count: bridgeResponse.endorsements.length });
+        endorsementsResult = await profileService.saveBridgeEndorsements(userId, bridgeResponse.endorsements);
+      }
+      
+      // Check if all operations succeeded
+      const allSuccessful = customerIdResult.success && rawResponseResult.success && endorsementsResult.success;
+      
+      if (allSuccessful) {
+        console.log('✅ All Bridge data saved successfully');
+        return { success: true };
+      } else {
+        const errors = [
+          !customerIdResult.success ? `Customer ID: ${customerIdResult.error}` : null,
+          !rawResponseResult.success ? `Raw response: ${rawResponseResult.error}` : null,
+          !endorsementsResult.success ? `Endorsements: ${endorsementsResult.error}` : null,
+        ].filter(Boolean);
+       
+       console.warn('⚠️ Some Bridge data operations failed:', errors);
+       return { 
+         success: false, 
+         error: `Partial save failure: ${errors.join(', ')}` 
+       };
+     }
+    } catch (err) {
+      console.error('💥 Error saving Bridge data:', err);
+      return { 
+        success: false, 
+        error: `Bridge data save failed: ${err instanceof Error ? err.message : 'Unknown error'}` 
+      };
     }
   },
 
@@ -323,6 +458,121 @@ export const profileService = {
 
     } catch (error) {
       console.error('💥 Error updating bridge_customer_id:', error);
+      return { 
+        success: false, 
+        error: `Database update error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      };
+    }
+  },
+
+  /**
+   * Update signed_agreement_id in KYC profile
+   */
+  updateSignedAgreementId: async (userId: string, signedAgreementId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🌉 Updating signed_agreement_id...', { userId, signedAgreementId });
+      
+      // Find the profile first
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', userId)
+        .single();
+
+      if (profileError || !profile) {
+        return { success: false, error: `Profile not found: ${profileError?.message}` };
+      }
+
+      const { error } = await supabaseAdmin
+        .from('kyc_profiles')
+        .update({
+          signed_agreement_id: signedAgreementId,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('profile_id', profile.id);
+
+      if (error) {
+        console.error('❌ Signed agreement ID update error:', error);
+        return { success: false, error: `Signed agreement ID update failed: ${error.message}` };
+      }
+
+      console.log('✅ Signed agreement ID saved to database successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('💥 Error updating signed agreement ID:', err);
+      return { success: false, error: `Signed agreement ID update failed: ${err instanceof Error ? err.message : 'Unknown error'}` };
+    }
+  },
+
+  /**
+   * Update both Bridge customer ID and signed agreement ID in one transaction
+   */
+  updateBridgeIntegrationData: async (
+    userId: string, 
+    bridgeCustomerId: string, 
+    signedAgreementId: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🌉 Updating complete Bridge integration data...', { 
+        userId, 
+        bridgeCustomerId, 
+        signedAgreementId 
+      });
+      
+      // Find the KYC profile for this user
+      console.log('🔍 Step 1: Finding profile for user...', { userId });
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', userId)
+        .single();
+
+      console.log('🔍 Profile query result:', {
+        found: !!profile,
+        profileId: profile?.id,
+        error: profileError
+      });
+
+      if (profileError || !profile) {
+        console.error('❌ Profile not found for user:', userId, profileError);
+        return { success: false, error: `Profile not found: ${profileError?.message}` };
+      }
+
+      // Update the KYC profile with both Bridge customer ID and signed agreement ID
+      console.log('🔍 Step 2: Updating KYC profile...', {
+        profileId: profile.id,
+        bridgeCustomerId,
+        signedAgreementId
+      });
+      
+      const updateData = {
+        bridge_customer_id: bridgeCustomerId,
+        signed_agreement_id: signedAgreementId,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      console.log('🔍 Update data:', updateData);
+      
+      const { error: updateError } = await supabaseAdmin
+        .from('kyc_profiles')
+        .update(updateData)
+        .eq('profile_id', profile.id);
+
+      console.log('🔍 Update result:', {
+        success: !updateError,
+        error: updateError
+      });
+
+      if (updateError) {
+        console.error('❌ Failed to update Bridge integration data:', updateError);
+        return { success: false, error: `Update failed: ${updateError.message}` };
+      }
+
+      console.log('✅ Complete Bridge integration data saved to database successfully');
+      return { success: true };
+
+    } catch (error) {
+      console.error('💥 Error updating Bridge integration data:', error);
       return { 
         success: false, 
         error: `Database update error: ${error instanceof Error ? error.message : 'Unknown error'}` 

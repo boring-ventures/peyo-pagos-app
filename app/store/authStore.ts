@@ -1,8 +1,12 @@
 import { ImageFile } from "@/app/components/ImagePickerModal";
 import { authService } from "@/app/services/authService";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { VerificationStatus } from "../types/KycTypes";
+
+// Session key for AsyncStorage
+const SESSION_KEY = 'supabase.session';
 
 type ProfileState = {
   first_name: string;
@@ -169,41 +173,101 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
-      const { user, error } = await authService.signIn(email, password);
+      console.log('🔐 Starting comprehensive login...', { email });
 
-      if (error) {
-        set({ error: error.message, isLoading: false });
+      // Use the new comprehensive login with validation
+      const loginResult = await authService.signInWithValidation(email, password);
+
+      if (!loginResult.success) {
+        console.error('❌ Login failed:', loginResult.error);
+        
+        // Handle specific error cases
+        if (loginResult.nextStep === 'account_disabled') {
+          set({ 
+            error: `Account is ${loginResult.userStatus}. Please contact support.`,
+            isLoading: false 
+          });
+        } else {
+          set({ 
+            error: loginResult.error || 'Login failed',
+            isLoading: false 
+          });
+        }
         return false;
       }
 
-      if (user) {
-        const userData = user.user_metadata as ProfileState;
-        const dbProfile = await authService.getProfile(user?.id || "");
+      const { user, session, userStatus, role, kycStatus, bridgeCustomerId, nextStep } = loginResult;
 
-        if (dbProfile) {
-          userData.avatar_url = dbProfile.avatar_url;
-        }
-
-        set({
-          isAuthenticated: true,
-          user,
-          profile: {
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-            email: user.email || userData.email || "",
-            avatar_url: userData.avatar_url,
-          },
-        });
-        return true;
+      if (!user) {
+        set({ error: 'No user data received', isLoading: false });
+        return false;
       }
 
-      return false;
+      console.log('✅ Login successful, next step:', nextStep);
+
+      // Get user metadata and profile
+      const userData = user.user_metadata as ProfileState;
+      let profileData = userData;
+
+      // Get complete profile from database
+      const dbProfile = await authService.getProfile(user.id);
+      if (dbProfile) {
+        profileData = {
+          ...dbProfile,
+          status: userStatus || dbProfile.status,
+          role: role || dbProfile.role,
+        };
+        console.log('✅ Profile loaded from database');
+      } else {
+        console.log('⚠️ Using metadata as profile fallback');
+        profileData = {
+          first_name: userData?.first_name || '',
+          last_name: userData?.last_name || '',
+          email: user.email || '',
+          phone: userData?.phone || user.phone || '',
+          avatar_url: userData?.avatar_url,
+          status: userStatus || 'active',
+          role: role || 'USER',
+        };
+      }
+
+      // Update auth state
+      set({
+        isAuthenticated: true,
+        user,
+        profile: profileData,
+        kycStatus: kycStatus === 'active' ? 'completed' : 
+                  kycStatus === 'under_review' ? 'in_progress' :
+                  kycStatus === 'rejected' ? 'rejected' : 'pending',
+        isLoading: false,
+        error: null
+      });
+
+      // Save session to AsyncStorage
+      if (session) {
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      }
+
+      // Log successful login with next step information
+      console.log('🎉 Login completed successfully', {
+        userId: user.id,
+        email: user.email,
+        role,
+        kycStatus,
+        nextStep,
+        hasBridgeCustomer: !!bridgeCustomerId
+      });
+
+      return true;
+
     } catch (err) {
+      console.error('💥 Error in login:', err);
       const error = err as Error;
-      set({ error: error.message });
+      set({ 
+        error: error.message || 'Login failed',
+        isLoading: false 
+      });
       return false;
-    } finally {
-      set({ isLoading: false });
     }
   },
 
@@ -256,14 +320,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     set({ isLoading: true });
     try {
+      console.log('🚪 Starting logout process...');
+      
+      // 1. Sign out from Supabase
       await authService.signOut();
+      
+      // 2. Clear auth store
       set({
         isAuthenticated: false,
         user: null,
         profile: null,
+        kycStatus: 'pending',
+        error: null,
       });
+      
+      // 3. Clear all user-specific stores
+      console.log('🧹 Clearing user-specific stores...');
+      
+      // Clear Bridge store (most important - fixes the issue)
+      const { default: useBridgeStore } = await import('./bridgeStore');
+      useBridgeStore.getState().resetBridgeIntegration();
+      
+      // Clear KYC store
+      const { default: useKycStore } = await import('./kycStore');
+      useKycStore.getState().resetKyc();
+      
+      // Clear security PIN (user-specific setting)
+      const { default: useSettingsStore } = await import('./settingsStore');
+      useSettingsStore.getState().enablePin(false);
+      
+      console.log('✅ All user stores cleared successfully');
+      
     } catch (error) {
-      console.error("Error logging out:", error);
+      console.error("💥 Error during logout:", error);
+      set({ error: error instanceof Error ? error.message : 'Logout failed' });
     } finally {
       set({ isLoading: false });
     }

@@ -1,13 +1,13 @@
 import Constants from "expo-constants";
 import {
-  BridgeApiResponse,
-  BridgeCreateCustomerResponse,
-  BridgeCustomer,
-  BridgeCustomerRequest,
-  BridgeDocumentType,
-  BridgeTosLinkResponse,
-  BridgeTosResponse,
-  KycProfileForBridge
+    BridgeApiResponse,
+    BridgeCreateCustomerResponse,
+    BridgeCustomer,
+    BridgeCustomerRequest,
+    BridgeDocumentType,
+    BridgeTosLinkResponse,
+    BridgeTosResponse,
+    KycProfileForBridge
 } from "../types/BridgeTypes";
 
 // Bridge API Configuration
@@ -330,7 +330,7 @@ export const bridgeService = {
    * Generate Terms of Service acceptance link
    * NOTE: ToS is not available in sandbox mode, so we return a dummy agreement
    */
-  generateTosLink: async (): Promise<BridgeTosLinkResponse> => {
+  generateTosLink: async (redirectUri?: string): Promise<BridgeTosLinkResponse> => {
     try {
       // In sandbox mode, ToS endpoints don't exist, so we return a dummy response
       if (BRIDGE_SANDBOX_MODE) {
@@ -341,18 +341,30 @@ export const bridgeService = {
           success: true,
           data: {
             id: dummyAgreementId,
-            url: `https://sandbox-bridge.xyz/tos/${dummyAgreementId}`,
+            url: `https://sandbox-bridge.xyz/tos/${dummyAgreementId}${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ''}`,
             expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
           },
         };
       }
 
       // Production mode: Use real ToS endpoint
+      console.log("🔐 Production mode: Generating real Bridge ToS link");
+      
+      // Build request body - empty for basic ToS generation
+      const requestBody: any = {};
+      
+      // Note: redirect_uri is passed as query parameter, not in body
+      let endpoint = "/customers/tos_links";
+      if (redirectUri) {
+        // The redirect_uri is passed as query parameter according to Bridge docs
+        endpoint += `?redirect_uri=${encodeURIComponent(redirectUri)}`;
+      }
+
       const response = await bridgeRequest<BridgeTosResponse>(
-        "/customers/tos_links",
+        endpoint,
         {
           method: "POST",
-          body: JSON.stringify({}),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -363,6 +375,7 @@ export const bridgeService = {
         };
       }
 
+      console.log("✅ Bridge ToS link generated successfully");
       return {
         success: true,
         data: response.data,
@@ -384,32 +397,80 @@ export const bridgeService = {
     kycProfile: KycProfileForBridge,
     signedAgreementId: string
   ): Promise<BridgeCreateCustomerResponse> => {
+    console.log("🌉 BRIDGE SERVICE: Starting createCustomer");
+    console.log("🔍 Input parameters:", {
+      email: kycProfile.email,
+      userId: kycProfile.userId,
+      signedAgreementId,
+      hasIdentifyingInfo: !!kycProfile.identifyingInfo,
+      hasAddress: !!kycProfile.address
+    });
+
     try {
       console.log("🌉 Creating Bridge customer for:", kycProfile.email);
 
       // Format KYC data for Bridge API
+      console.log("🔄 Formatting KYC profile for Bridge API...");
       const customerRequest = await formatKYCProfileForBridge(kycProfile);
       customerRequest.signed_agreement_id = signedAgreementId;
 
+      console.log("🔍 Bridge API request payload:", {
+        email: customerRequest.email,
+        hasIdentifyingInfo: !!customerRequest.identifying_information,
+        signedAgreementId: customerRequest.signed_agreement_id
+      });
+
+      console.log("🌉 Making API call to Bridge /customers endpoint...");
       const response = await bridgeRequest<BridgeCustomer>("/customers", {
         method: "POST",
         body: JSON.stringify(customerRequest),
       });
 
+      console.log("🔍 Bridge API response:", {
+        hasError: !!response.error,
+        hasData: !!response.data,
+        errorCode: response.error?.code,
+        errorMessage: response.error?.message,
+        customerId: response.data?.id,
+        verificationStatus: response.data?.verification_status
+      });
+
       if (response.error) {
+        console.error("❌ Bridge API returned error:", response.error);
         return {
           success: false,
           error: `Customer Creation Error: ${response.error.message}`,
         };
       }
 
-      console.log("✅ Bridge customer created:", response.data?.id);
+      if (!response.data) {
+        console.error("❌ Bridge API returned no data");
+        return {
+          success: false,
+          error: "Customer Creation Error: No data returned from Bridge API",
+        };
+      }
+
+      console.log("✅ Bridge customer created successfully:");
+      console.log("🔍 Customer details:", {
+        id: response.data.id,
+        verification_status: response.data.verification_status,
+        payin_crypto: response.data.payin_crypto,
+        payout_crypto: response.data.payout_crypto,
+        endorsements: response.data.endorsements?.length || 0,
+        requirements_due: response.data.requirements_due?.length || 0
+      });
+
       return {
         success: true,
         data: response.data,
       };
     } catch (error) {
       console.error("💥 Error creating Bridge customer:", error);
+      console.error("💥 Error details:", {
+        message: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return {
         success: false,
         error: `Customer Creation Failed: ${
@@ -450,7 +511,11 @@ export const bridgeService = {
   /**
    * Create wallet for Bridge customer
    */
-  createWallet: async (customerId: string, walletRequest: any) => {
+  createWallet: async (customerId: string, walletRequest: any): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }> => {
     try {
       console.log(`🌉 Creating wallet for customer: ${customerId}`);
 
@@ -484,7 +549,11 @@ export const bridgeService = {
   /**
    * Get all wallets for Bridge customer
    */
-  getCustomerWallets: async (customerId: string) => {
+  getCustomerWallets: async (customerId: string): Promise<{
+    success: boolean;
+    data?: any[];
+    error?: string;
+  }> => {
     try {
       const response = await bridgeRequest(`/customers/${customerId}/wallets`);
 
@@ -497,7 +566,7 @@ export const bridgeService = {
 
       return {
         success: true,
-        data: response.data || [],
+        data: Array.isArray(response.data) ? response.data : [],
       };
     } catch (error) {
       return {
@@ -512,7 +581,11 @@ export const bridgeService = {
   /**
    * Sync customer status from Bridge (for updates)
    */
-  syncCustomerStatus: async (customerId: string) => {
+  syncCustomerStatus: async (customerId: string): Promise<{
+    verificationStatus: string;
+    requirementsDue: string[];
+    error?: string;
+  }> => {
     try {
       const customerResponse = await bridgeService.getCustomer(customerId);
 
@@ -542,7 +615,11 @@ export const bridgeService = {
   /**
    * Create default USDC wallet for new customers
    */
-  createDefaultWallet: async (customerId: string) => {
+  createDefaultWallet: async (customerId: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }> => {
     return bridgeService.createWallet(customerId, {
       currency: "usdc",
       network: "base", // Using Base network as default

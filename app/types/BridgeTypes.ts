@@ -20,6 +20,22 @@ export type BridgeDocumentType =
   | 'national_id' 
   | 'voter_id';
 
+export type BridgeEndorsementType = 'base' | 'sepa' | 'spei';
+
+export type BridgeEndorsementStatus = 'incomplete' | 'approved' | 'revoked';
+
+// Bridge Endorsement (from customer response)
+export interface BridgeEndorsement {
+  name: BridgeEndorsementType;
+  status: BridgeEndorsementStatus;
+  requirements?: {
+    issues?: string[];
+    missing?: string[];
+    pending?: string[];
+    complete?: string[];
+  };
+}
+
 // Bridge Customer Request (for POST /customers)
 export interface BridgeCustomerRequest {
   type: BridgeCustomerType;
@@ -68,6 +84,7 @@ export interface BridgeCustomer {
   signed_agreement_id: string;
   created_at: string; // ISO 8601 timestamp
   updated_at: string; // ISO 8601 timestamp
+  endorsements?: BridgeEndorsement[]; // Optional endorsements array
 }
 
 // Bridge Terms of Service Response

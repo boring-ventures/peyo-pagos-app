@@ -213,7 +213,6 @@ const convertKycDataToBridgeProfile = (): KycProfileForBridge | null => {
   if (!documents.idFront) missingFields.push("documents.idFront");
   if (!user) missingFields.push("user");
   if (!profile) missingFields.push("profile");
-  if (profile && !profile.phone) missingFields.push("profile.phone");
 
   if (missingFields.length > 0) {
     console.warn(
@@ -233,7 +232,6 @@ const convertKycDataToBridgeProfile = (): KycProfileForBridge | null => {
       profile: profile
         ? {
             ...profile,
-            phone: profile.phone || "missing",
           }
         : "missing",
     });
@@ -258,7 +256,7 @@ const convertKycDataToBridgeProfile = (): KycProfileForBridge | null => {
     firstName: personalInfo.firstName!,
     lastName: personalInfo.lastName!,
     birthDate: personalInfo.dateOfBirth!, // Assuming YYYY-MM-DD format
-    phone: profile!.phone || "",
+    phone: "", // Phone will be populated from kyc_profiles if needed
     address: {
       streetLine1: addressInfo.address!,
       streetLine2: undefined,
@@ -346,6 +344,11 @@ const initializeBridgeIntegration = async (): Promise<{
       };
     }
 
+    // Reset Bridge store to ensure clean state
+    console.log("🔄 Resetting Bridge store for clean initialization...");
+    const { resetBridgeIntegration } = useBridgeStore.getState();
+    resetBridgeIntegration();
+
     // Try to get profile data from database first
     console.log("🌉 Getting profile data from database for Bridge...");
     const profileData = await profileService.getProfileForBridge(user.id);
@@ -380,21 +383,22 @@ const initializeBridgeIntegration = async (): Promise<{
       };
     }
 
-    // Start Bridge integration
+    // Start Bridge integration with clean state
+    console.log("🌉 Starting Bridge integration with clean state...");
     const { initializeBridgeIntegration } = useBridgeStore.getState();
     const result = await initializeBridgeIntegration(bridgeProfile);
 
     if (result.success) {
       console.log("✅ Bridge integration completed successfully");
     } else {
-      console.error("💥 Bridge integration failed:", result.error);
+      console.error("❌ Bridge integration failed:", result.error);
     }
 
     return result;
+
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    console.error("💥 Bridge integration initialization failed:", errorMessage);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("💥 Error initializing Bridge integration:", errorMessage);
     return {
       success: false,
       error: errorMessage,
@@ -605,10 +609,141 @@ const autoCompleteKYCFlow = async (): Promise<{ success: boolean; error?: string
   }
 };
 
+/**
+ * Diagnostic function to check the current state of KYC and Bridge integration
+ */
+export const diagnoseBridgeIntegrationIssues = async (): Promise<{
+  success: boolean;
+  diagnostics: any;
+  recommendations: string[];
+}> => {
+  try {
+    console.log("🔍 Starting Bridge integration diagnostics...");
+    
+    const { user } = useAuthStore.getState();
+    const { personalInfo, addressInfo, documents } = useKycStore.getState();
+    const bridgeState = useBridgeStore.getState();
+    
+    const diagnostics: {
+      auth: any;
+      kycStore: any;
+      bridgeStore: any;
+      environment: any;
+      database?: any;
+    } = {
+      auth: {
+        hasUser: !!user,
+        userId: user?.id,
+        userEmail: user?.email,
+        userPhone: user?.phone,
+      },
+      kycStore: {
+        hasPersonalInfo: !!personalInfo.firstName && !!personalInfo.lastName,
+        hasAddressInfo: !!addressInfo.country && !!addressInfo.city,
+        hasDocuments: !!documents.idFront,
+        personalInfo,
+        addressInfo,
+        documents: {
+          idFront: documents.idFront ? 'present' : 'missing',
+          idBack: documents.idBack ? 'present' : 'missing',
+          selfie: documents.selfie ? 'present' : 'missing',
+        }
+      },
+      bridgeStore: {
+        isInitialized: bridgeState.isInitialized,
+        bridgeCustomerId: bridgeState.bridgeCustomerId,
+        hasAcceptedTermsOfService: bridgeState.hasAcceptedTermsOfService,
+        signedAgreementId: bridgeState.signedAgreementId,
+        integrationError: bridgeState.integrationError,
+        isPendingTosAcceptance: bridgeState.isPendingTosAcceptance,
+      },
+      environment: {
+        hasBridgeApiKey: !!process.env.EXPO_PUBLIC_BRIDGE_API_KEY,
+        bridgeApiUrl: process.env.EXPO_PUBLIC_BRIDGE_API_URL,
+        sandboxMode: process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE,
+        supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+        hasSupabaseKeys: !!(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY && process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY),
+      }
+    };
+
+    // Check database profile
+    if (user?.id) {
+      console.log("🔍 Checking database profile...");
+      const dbProfile = await profileService.getProfileForBridge(user.id);
+      diagnostics.database = {
+        hasProfile: !!dbProfile,
+        profileStructure: dbProfile ? {
+          hasKycProfile: !!dbProfile.kycProfile,
+          kycProfileCount: dbProfile.kycProfile?.length || 0,
+          hasAddress: !!(dbProfile.kycProfile?.[0]?.address?.length),
+          hasIdentifyingInfo: !!(dbProfile.kycProfile?.[0]?.identifyingInfo?.length),
+        } : null
+      };
+    }
+
+    const recommendations: string[] = [];
+
+    // Generate recommendations
+    if (!diagnostics.auth.hasUser) {
+      recommendations.push("❌ Usuario no autenticado - necesita login");
+    }
+
+    if (!diagnostics.environment.hasBridgeApiKey) {
+      recommendations.push("❌ EXPO_PUBLIC_BRIDGE_API_KEY no configurado en .env");
+    }
+
+    if (!diagnostics.environment.hasSupabaseKeys) {
+      recommendations.push("❌ Claves de Supabase no configuradas en .env");
+    }
+
+    if (!diagnostics.kycStore.hasPersonalInfo) {
+      recommendations.push("⚠️ Información personal incompleta en KYC store");
+    }
+
+    if (!diagnostics.kycStore.hasAddressInfo) {
+      recommendations.push("⚠️ Información de dirección incompleta en KYC store");
+    }
+
+    if (!diagnostics.kycStore.hasDocuments) {
+      recommendations.push("⚠️ Documentos faltantes en KYC store");
+    }
+
+    if (diagnostics.database && !diagnostics.database.hasProfile) {
+      recommendations.push("❌ Perfil no encontrado en base de datos - ejecutar createProfileAfterKyc()");
+    }
+
+    if (bridgeState.integrationError) {
+      recommendations.push(`❌ Error en Bridge integration: ${bridgeState.integrationError}`);
+    }
+
+    if (!bridgeState.isInitialized && diagnostics.environment.hasBridgeApiKey) {
+      recommendations.push("⚠️ Bridge integration no inicializada - ejecutar initializeBridgeIntegration()");
+    }
+
+    console.log("🔍 Diagnostics completed:", diagnostics);
+    console.log("📋 Recommendations:", recommendations);
+
+    return {
+      success: true,
+      diagnostics,
+      recommendations
+    };
+
+  } catch (error) {
+    console.error("💥 Error in diagnostics:", error);
+    return {
+      success: false,
+      diagnostics: { error: error instanceof Error ? error.message : 'Unknown error' },
+      recommendations: ["❌ Error ejecutando diagnóstico - revisar logs"]
+    };
+  }
+};
+
 export const kycService = {
   advanceToNextStep,
   submitKycData,
   initializeBridgeIntegration,
   convertDatabaseProfileToBridge,
   autoCompleteKYCFlow,
+  retryBridgeIntegration,
 };

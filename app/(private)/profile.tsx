@@ -1,3 +1,4 @@
+import { ActionCard } from '@/app/components/ActionCard';
 import { BridgeIntegrationCard } from '@/app/components/bridge/BridgeIntegrationCard';
 import { ProfileInfoRow } from '@/app/components/ProfileInfoRow';
 import { ThemedButton } from '@/app/components/ThemedButton';
@@ -131,6 +132,20 @@ export default function ProfileScreen() {
             label="Idioma"
             value="Español"
             icon="language-outline"
+          />
+        </View>
+
+        {/* Developer Section */}
+        <View style={styles.sectionContainer}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Desarrollador
+          </ThemedText>
+          
+          <ActionCard
+            title="Bridge Debug Panel"
+            subtitle="Panel de testing y depuración Bridge"
+            icon="code-outline"
+            onPress={() => router.push('/(private)/bridge-debug')}
           />
         </View>
 

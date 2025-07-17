@@ -11,12 +11,12 @@ import { AuthError } from "@supabase/supabase-js";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
-  SafeAreaView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  useColorScheme,
+    Alert,
+    SafeAreaView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+    useColorScheme,
 } from "react-native";
 
 const OTP_LENGTH = 6;
@@ -92,8 +92,16 @@ export default function OTPVerificationScreen() {
         // Verify OTP for the phone change (now associated with main user)
         console.log('📱 Verifying OTP with type: phone_change, phone:', phone, 'token:', otp);
         
-        // TESTING: Try manual verification if OTP code is "999999"
-        if (otp === "999999") {
+        // Check if phone verification is disabled in environment
+        const isPhoneVerificationEnabled = process.env.EXPO_PUBLIC_PHONE_VERIFICATION_ENABLED === 'true';
+        
+        if (!isPhoneVerificationEnabled) {
+          // Simulate successful verification when phone verification is disabled
+          console.log('⚠️ Phone verification disabled in environment, simulating successful verification');
+          console.log('✅ [TESTING] Phone verification bypassed successfully');
+          // Don't perform any real verification - just mark as successful
+        } else if (otp === "999999") {
+          // TESTING: Try manual verification if OTP code is "999999" and verification is enabled
           console.log('🧪 [TESTING] Using manual verification bypass');
           const { error: manualError } = await authService.manuallyVerifyPhoneForTesting(phone);
           if (manualError) {
@@ -122,30 +130,25 @@ export default function OTPVerificationScreen() {
           console.log('✅ OTP verified successfully for main user:', data.user.id);
         }
         
-        // Mark phone as verified in main user
-        const { error: verifyError } = await authService.markPhoneAsVerified();
-        if (verifyError) {
-          console.warn('⚠️ Warning: Could not mark phone as verified:', verifyError.message);
+        // Mark phone as verified in main user (only if phone verification is enabled)
+        if (isPhoneVerificationEnabled) {
+          const { error: verifyError } = await authService.markPhoneAsVerified();
+          if (verifyError) {
+            console.warn('⚠️ Warning: Could not mark phone as verified:', verifyError.message);
+          } else {
+            console.log('✅ Phone marked as verified in main user');
+          }
         } else {
-          console.log('✅ Phone marked as verified in main user');
+          console.log('⚠️ Phone verification disabled, skipping markPhoneAsVerified call');
         }
         
         // Update auth store with verified user info
         await initialize();
         
-        console.log('✅ Registration completed successfully, starting automated onboarding...');
+        console.log('✅ Registration completed successfully, proceeding to KYC flow...');
         
-        // 🚀 NEW: Auto-complete entire KYC and Bridge flow
-        const { kycService } = await import('@/app/services/kycService');
-        const autoKycResult = await kycService.autoCompleteKYCFlow();
-        
-        if (autoKycResult.success) {
-          console.log('🎉 Automated onboarding completed successfully!');
-          router.replace("/(private)/home");
-        } else {
-          console.warn('⚠️ Automated onboarding failed, falling back to manual KYC:', autoKycResult.error);
-          router.replace("/(auth)/personal-info");
-        }
+        // Redirect to manual KYC flow
+        router.replace("/(auth)/personal-info");
         
       } else if (purpose === "passwordReset") {
         // For password reset, use the original flow
