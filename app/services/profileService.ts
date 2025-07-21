@@ -317,6 +317,45 @@ export const profileService = {
   },
 
   /**
+   * Save Bridge raw request to database
+   */
+  saveBridgeRawRequest: async (userId: string, bridgeRequest: any): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🌉 Updating bridge_raw_request in database...', { userId });
+      
+      // Find the profile first
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', userId)
+        .single();
+
+      if (profileError || !profile) {
+        return { success: false, error: `Profile not found: ${profileError?.message}` };
+      }
+
+      const { error } = await supabaseAdmin
+        .from('kyc_profiles')
+        .update({
+          bridge_raw_request: bridgeRequest,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('profile_id', profile.id);
+
+      if (error) {
+        console.error('❌ Bridge raw request update error:', error);
+        return { success: false, error: `Bridge raw request update failed: ${error.message}` };
+      }
+
+      console.log('✅ Bridge raw request saved to database successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('💥 Error saving Bridge raw request:', err);
+      return { success: false, error: `Bridge raw request save failed: ${err instanceof Error ? err.message : 'Unknown error'}` };
+    }
+  },
+
+  /**
    * Save Bridge endorsements to database
    */
   saveBridgeEndorsements: async (userId: string, endorsements: any[]): Promise<{ success: boolean; error?: string }> => {
@@ -373,11 +412,19 @@ export const profileService = {
   },
 
   /**
-   * Save all Bridge data (customer ID, raw response, and endorsements) in one operation
+   * Save all Bridge data (customer ID, raw request, raw response, and endorsements) in one operation
    */
-  saveBridgeData: async (userId: string, bridgeResponse: any): Promise<{ success: boolean; error?: string }> => {
+  saveBridgeData: async (
+    userId: string, 
+    bridgeResponse: any, 
+    bridgeRequest?: any
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('🌉 Saving all Bridge data to database...', { userId, bridgeCustomerId: bridgeResponse.id });
+      console.log('🌉 Saving all Bridge data to database...', { 
+        userId, 
+        bridgeCustomerId: bridgeResponse.id,
+        hasBridgeRequest: !!bridgeRequest
+      });
       
       // 1. Save customer ID
       const customerIdResult = await profileService.updateBridgeCustomerId(userId, bridgeResponse.id);
@@ -385,7 +432,14 @@ export const profileService = {
       // 2. Save raw response
       const rawResponseResult = await profileService.saveBridgeRawResponse(userId, bridgeResponse);
       
-      // 3. Save endorsements if they exist
+      // 3. Save raw request if provided
+      let rawRequestResult: { success: boolean; error?: string } = { success: true };
+      if (bridgeRequest) {
+        console.log('📝 Saving Bridge raw request...'); 
+        rawRequestResult = await profileService.saveBridgeRawRequest(userId, bridgeRequest);
+      }
+      
+      // 4. Save endorsements if they exist
       let endorsementsResult: { success: boolean; error?: string } = { success: true };
       if (bridgeResponse.endorsements && Array.isArray(bridgeResponse.endorsements)) {
         console.log('📝 Saving Bridge endorsements...', { count: bridgeResponse.endorsements.length });
@@ -393,7 +447,10 @@ export const profileService = {
       }
       
       // Check if all operations succeeded
-      const allSuccessful = customerIdResult.success && rawResponseResult.success && endorsementsResult.success;
+      const allSuccessful = customerIdResult.success && 
+                           rawResponseResult.success && 
+                           rawRequestResult.success && 
+                           endorsementsResult.success;
       
       if (allSuccessful) {
         console.log('✅ All Bridge data saved successfully');
@@ -402,6 +459,7 @@ export const profileService = {
         const errors = [
           !customerIdResult.success ? `Customer ID: ${customerIdResult.error}` : null,
           !rawResponseResult.success ? `Raw response: ${rawResponseResult.error}` : null,
+          !rawRequestResult.success ? `Raw request: ${rawRequestResult.error}` : null,
           !endorsementsResult.success ? `Endorsements: ${endorsementsResult.error}` : null,
         ].filter(Boolean);
        

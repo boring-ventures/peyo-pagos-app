@@ -13,8 +13,9 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, profile, isAuthenticated } = useAuthStore();
+  const { user, profile, isAuthenticated, userTag, loadUserTag } = useAuthStore(); // 🏷️ NEW: Include userTag and loadUserTag
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingUserTag, setIsLoadingUserTag] = useState(false);
 
   // If not authenticated, ensure redirect happens (handled by _layout.tsx)
   useEffect(() => {
@@ -22,6 +23,25 @@ export default function ProfileScreen() {
       router.replace('/(public)/login');
     }
   }, [isAuthenticated, user, router]);
+
+  // 🏷️ NEW: Load user tag if not available
+  useEffect(() => {
+    const loadUserTagIfNeeded = async () => {
+      if (isAuthenticated && user && !userTag) {
+        console.log('🏷️ User tag not loaded, fetching from database...');
+        setIsLoadingUserTag(true);
+        try {
+          await loadUserTag();
+        } catch (error) {
+          console.error('❌ Error loading user tag:', error);
+        } finally {
+          setIsLoadingUserTag(false);
+        }
+      }
+    };
+
+    loadUserTagIfNeeded();
+  }, [isAuthenticated, user, userTag, loadUserTag]);
 
   const handleLogout = async () => {
     setIsLoading(true);

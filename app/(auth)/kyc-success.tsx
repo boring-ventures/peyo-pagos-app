@@ -14,7 +14,7 @@ import { Alert, Animated, Easing, StyleSheet, View } from 'react-native';
 
 export default function KycSuccessScreen() {
   const router = useRouter();
-  const { updateKycStatus, user } = useAuthStore();
+  const { updateKycStatus, user, userTag } = useAuthStore(); // 🏷️ NEW: Include userTag
   const {
     initializeBridgeIntegration,
     bridgeCustomerId,

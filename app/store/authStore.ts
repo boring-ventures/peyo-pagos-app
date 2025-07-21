@@ -16,6 +16,7 @@ type ProfileState = {
   avatar_url?: string;
   status?: 'active' | 'disabled' | 'deleted';
   role?: 'USER' | 'SUPERADMIN';
+  user_tag?: string | null; // 🏷️ NEW: User tag field
 };
 
 type AuthState = {
@@ -25,6 +26,7 @@ type AuthState = {
   profile: ProfileState | null;
   error: string | null;
   kycStatus: VerificationStatus;
+  userTag: string | null; // 🏷️ NEW: User tag state
 
   // Acciones
   initialize: () => Promise<void>;
@@ -41,6 +43,10 @@ type AuthState = {
   restoreSession: () => Promise<boolean>;
   updateProfile: (profileData: ProfileState) => void;
   updateKycStatus: (status: VerificationStatus) => void;
+  
+  // 🏷️ NEW: User tag management actions
+  updateUserTag: (userTag: string | null) => void;
+  loadUserTag: () => Promise<void>;
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -50,6 +56,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   profile: null,
   error: null,
   kycStatus: 'pending',
+  userTag: null, // 🏷️ NEW: Initialize user tag as null
 
   initialize: async () => {
     set({ isLoading: true });
@@ -96,6 +103,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               avatar_url: userData?.avatar_url,
               status: 'active', // Default status during registration
               role: 'USER',     // Default role for regular users
+              user_tag: null,   // 🏷️ NEW: Default user tag as null
             };
           }
         }
@@ -111,7 +119,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             avatar_url: profileData.avatar_url,
             status: profileData.status || 'active',
             role: profileData.role || 'USER',
+            user_tag: profileData.user_tag || null, // 🏷️ NEW: Include user tag
           },
+          userTag: profileData.user_tag || null, // 🏷️ NEW: Set user tag in state
         });
 
         return true;
@@ -142,6 +152,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               avatar_url: userData?.avatar_url,
               status: 'active', // Default status during registration
               role: 'USER',     // Default role for regular users
+              user_tag: null,   // 🏷️ NEW: Default user tag as null
             };
           }
         }
@@ -157,7 +168,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             avatar_url: profileData.avatar_url,
             status: profileData.status || 'active',
             role: profileData.role || 'USER',
+            user_tag: profileData.user_tag || null, // 🏷️ NEW: Include user tag
           },
+          userTag: profileData.user_tag || null, // 🏷️ NEW: Set user tag in state
         });
 
         return true;
@@ -228,6 +241,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           avatar_url: userData?.avatar_url,
           status: userStatus || 'active',
           role: role || 'USER',
+          user_tag: null, // 🏷️ NEW: Default for fallback
         };
       }
 
@@ -240,7 +254,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   kycStatus === 'under_review' ? 'in_progress' :
                   kycStatus === 'rejected' ? 'rejected' : 'pending',
         isLoading: false,
-        error: null
+        error: null,
+        userTag: profileData.user_tag || null, // 🏷️ NEW: Set user tag from profile
       });
 
       // Save session to AsyncStorage
@@ -332,6 +347,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         profile: null,
         kycStatus: 'pending',
         error: null,
+        userTag: null, // 🏷️ NEW: Clear user tag on logout
       });
       
       // 3. Clear all user-specific stores
@@ -370,6 +386,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   updateKycStatus: (status: VerificationStatus) => set({ kycStatus: status }),
+  
+  // 🏷️ NEW: User tag management actions
+  updateUserTag: (userTag: string | null) => {
+    console.log('🏷️ Updating user tag in store:', userTag);
+    set({ userTag });
+  },
+
+  loadUserTag: async () => {
+    const { user } = get();
+    if (!user?.id) {
+      console.log('⚠️ No user ID available for loading user tag');
+      return;
+    }
+
+    try {
+      console.log('🏷️ Loading user tag from database...');
+      const { userTagService } = await import('../services/userTagService');
+      const result = await userTagService.getUserTag(user.id);
+      
+      if (result.success) {
+        set({ userTag: result.data });
+        console.log('✅ User tag loaded successfully:', result.data);
+      } else {
+        console.error('❌ Failed to load user tag:', result.error);
+      }
+    } catch (error) {
+      console.error('💥 Error loading user tag:', error);
+    }
+  },
 }));
 
 export default useAuthStore;

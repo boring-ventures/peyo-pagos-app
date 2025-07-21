@@ -5,9 +5,40 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "peyopagos",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "linking": {
+      "prefixes": ["peyopagos://", "https://peyopagos.com", "https://app.peyopagos.com"],
+      "config": {
+        "screens": {
+          "(public)": {
+            "screens": {
+              "login": "login",
+              "register": "register", 
+              "forgot-password": "forgot-password",
+              "otp-verification": "otp-verification"
+            }
+          },
+          "(private)": {
+            "screens": {
+              "home": "home",
+              "profile": "profile",
+              "edit-profile": "edit-profile",
+              "security-settings": "security-settings"
+            }
+          },
+          "(auth)": {
+            "screens": {
+              "welcome": "kyc-welcome",
+              "personal-info": "kyc-personal", 
+              "kyc-success": "kyc-success"
+            }
+          },
+          "bridge-tos-callback": "bridge-tos-callback"
+        }
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.peyopagos.app"

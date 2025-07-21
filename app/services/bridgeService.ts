@@ -420,6 +420,23 @@ export const bridgeService = {
         signedAgreementId: customerRequest.signed_agreement_id
       });
 
+      // 🚨 NEW: Save Bridge raw request to database BEFORE sending to API
+      console.log("🗄️ Saving Bridge raw request to database...");
+      const { profileService } = await import('./profileService');
+      const rawRequestResult = await profileService.saveBridgeRawRequest(
+        kycProfile.userId, 
+        customerRequest
+      );
+      
+      console.log("🔍 Raw request save result:", rawRequestResult);
+      
+      if (!rawRequestResult.success) {
+        console.warn("⚠️ Bridge raw request save failed:", rawRequestResult.error);
+        // Don't fail the entire operation, just log the warning
+      } else {
+        console.log("✅ Bridge raw request saved to database successfully");
+      }
+
       console.log("🌉 Making API call to Bridge /customers endpoint...");
       const response = await bridgeRequest<BridgeCustomer>("/customers", {
         method: "POST",

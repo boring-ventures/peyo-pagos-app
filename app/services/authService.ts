@@ -386,7 +386,7 @@ export const authService = {
       // Use admin client for reliable access
       const { data, error } = await supabaseAdmin
         .from('profiles')
-        .select('email, first_name, last_name, status, role')
+        .select('email, first_name, last_name, status, role, user_tag') // 🏷️ NEW: Include user_tag
         .eq('userId', userId)
         .single();
 
