@@ -40,69 +40,7 @@ export default function BridgeToSCallbackScreen() {
         
         if (result.success) {
           console.log('✅ ToS acceptance processed successfully');
-          
-          // Now that ToS is accepted, continue with Bridge customer creation
-          console.log('🔄 Continuing with Bridge customer creation...');
-          
-          try {
-            // Get current user and re-initialize Bridge integration
-            const { kycService } = await import('@/app/services/kycService');
-            const { authService } = await import('@/app/services/authService');
-            const { profileService } = await import('@/app/services/profileService');
-            
-            const currentUser = await authService.getCurrentUser();
-            if (!currentUser) {
-              throw new Error('No current user found');
-            }
-
-            // Get profile data and create Bridge customer
-            console.log('🔍 Getting profile data for Bridge customer creation...');
-            const profileData = await profileService.getProfileForBridge(currentUser.id);
-            
-            if (!profileData) {
-              throw new Error('Failed to get profile data for Bridge');
-            }
-
-            // Convert to Bridge format
-            const bridgeProfile = await kycService.convertDatabaseProfileToBridge(profileData);
-            if (!bridgeProfile) {
-              throw new Error('Failed to convert profile to Bridge format');
-            }
-
-            // Create Bridge customer with the signed agreement ID
-            const { createBridgeCustomer } = useBridgeStore.getState();
-            const customerResult = await createBridgeCustomer(bridgeProfile, signedAgreementId);
-            
-            if (customerResult.success && customerResult.customerId) {
-              console.log('✅ Bridge customer created successfully:', customerResult.customerId);
-              
-              // Try to create default wallet
-              const { createDefaultWallet } = useBridgeStore.getState();
-              const walletResult = await createDefaultWallet();
-              
-              if (walletResult.success) {
-                console.log('✅ Default wallet created successfully');
-              } else {
-                console.warn('⚠️ Wallet creation failed:', walletResult.error);
-              }
-              
-              // Mark as initialized
-              useBridgeStore.setState({ 
-                isInitialized: true,
-                lastSyncAt: new Date().toISOString()
-              });
-              
-              console.log('🎉 Bridge integration completed successfully!');
-            } else {
-              console.error('❌ Bridge customer creation failed:', customerResult.error);
-            }
-            
-          } catch (bridgeError) {
-            console.error('💥 Error continuing Bridge flow:', bridgeError);
-            // Don't show error to user - this is background process
-          }
-          
-          // Return to previous screen
+          // Return to previous screen or continue with Bridge flow
           router.back();
         } else {
           console.error('❌ ToS acceptance processing failed:', result.error);

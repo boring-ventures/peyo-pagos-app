@@ -13,6 +13,7 @@ module.exports = ({ config }) => {
       EXPO_PUBLIC_BRIDGE_API_URL: process.env.EXPO_PUBLIC_BRIDGE_API_URL,
       EXPO_PUBLIC_BRIDGE_API_KEY: process.env.EXPO_PUBLIC_BRIDGE_API_KEY,
       EXPO_PUBLIC_BRIDGE_SANDBOX_MODE: process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE,
+      EXPO_PUBLIC_APP_URL: process.env.EXPO_PUBLIC_APP_URL,
     },
   };
 }; 

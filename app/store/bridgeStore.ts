@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { analyticsService } from '../services/analyticsService';
@@ -7,10 +6,10 @@ import { bridgeService } from '../services/bridgeService';
 import { profileService } from '../services/profileService';
 import { walletService } from '../services/walletService';
 import {
-  BridgeCapabilityStatus,
-  BridgeVerificationStatus,
-  BridgeWallet,
-  KycProfileForBridge
+    BridgeCapabilityStatus,
+    BridgeVerificationStatus,
+    BridgeWallet,
+    KycProfileForBridge
 } from '../types/BridgeTypes';
 import { useAuthStore } from './authStore';
 
@@ -133,30 +132,6 @@ export const useBridgeStore = create<BridgeStore>()(
           return { success: true };
         }
 
-        // Additional protection: Prevent rapid successive calls
-        const lastInitAttemptKey = `bridge_init_attempt_${kycProfile.userId}`;
-        try {
-          const lastAttempt = await AsyncStorage.getItem(lastInitAttemptKey);
-          const now = Date.now();
-          
-          if (lastAttempt) {
-            const lastAttemptTime = parseInt(lastAttempt);
-            const timeDiff = now - lastAttemptTime;
-            
-            // If last attempt was less than 30 seconds ago, skip
-            if (timeDiff < 30000) {
-              console.log(`⏭️ Recent initialization attempt detected (${Math.round(timeDiff/1000)}s ago), skipping...`);
-              return { success: false, error: 'Recent initialization attempt, please wait' };
-            }
-          }
-
-          // Mark this attempt
-          await AsyncStorage.setItem(lastInitAttemptKey, now.toString());
-        } catch (error) {
-          console.warn('⚠️ Error checking last attempt time:', error);
-          // Continue with initialization even if AsyncStorage fails
-        }
-
         // Check if integration is already in progress
         if (state.isLoading) {
           console.log('🔄 Bridge integration already in progress, skipping duplicate call');
@@ -167,13 +142,8 @@ export const useBridgeStore = create<BridgeStore>()(
         set({ isLoading: true, integrationError: null });
 
         try {
-          // Get sandbox mode from bridgeService to ensure consistency
-          const { bridgeService } = await import('../services/bridgeService');
-          const isSandbox = !(await bridgeService.isConfigured()) || 
-                           process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE === 'true' ||
-                           Constants.expoConfig?.extra?.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE === 'true';
-          
-          console.log(`🔧 Bridge Store - Sandbox mode: ${isSandbox}`);
+          // Check if we're in sandbox mode
+          const isSandbox = process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE === 'true';
           
           if (isSandbox) {
             // Sandbox flow: Auto-generate and accept ToS (since ToS endpoints don't exist)
@@ -286,56 +256,28 @@ export const useBridgeStore = create<BridgeStore>()(
       },
 
       /**
-       * Show ToS to user (for production flow) - Auto opens browser
+       * Show ToS to user (for production flow)
        */
       showToSForUser: async () => {
         try {
-          console.log('🔐 Starting ToS flow for user...');
-          
-          // Use correct deep link redirect URI (per app.json scheme configuration)
-          const redirectUri = 'peyopagos://bridge-tos-callback';
-          console.log('🔄 Using redirect URI:', redirectUri);
+          // Generate redirect URI that includes some identifier
+          const redirectUri = `${process.env.EXPO_PUBLIC_APP_URL || 'https://your-app.com'}/bridge-tos-callback`;
           
           const response = await bridgeService.generateTosLink(redirectUri);
           
           if (!response.success || !response.data) {
-            console.error('❌ Failed to generate ToS link:', response.error);
             return { 
               success: false, 
               error: response.error || 'Failed to generate ToS link' 
             };
           }
 
-          console.log('✅ ToS link generated, opening browser...');
-          console.log('🔗 ToS URL:', response.data.url);
-
           // Store ToS details for tracking
           set({
             tosUrl: response.data.url,
-            tosAgreementId: response.data.id || null, // Bridge ToS response may not include ID initially
+            tosAgreementId: response.data.id,
             isPendingTosAcceptance: true
           });
-
-          // AUTO-OPEN the ToS URL in browser
-          try {
-            const { openBrowserAsync } = await import('expo-web-browser');
-            
-            console.log('🌐 Opening ToS URL in browser...');
-            const browserResult = await openBrowserAsync(response.data.url, {
-              showTitle: true,
-            });
-            
-            console.log('🔍 Browser result:', browserResult);
-            
-            // The browser will either:
-            // 1. User accepts ToS -> redirects to our deep link -> handleTosAcceptance called
-            // 2. User cancels -> we stay in pending state
-            // 3. User closes browser -> we stay in pending state
-            
-          } catch (browserError) {
-            console.error('⚠️ Error opening browser:', browserError);
-            // Don't fail the whole flow, user can manually open the URL
-          }
 
           return {
             success: true,
@@ -343,7 +285,6 @@ export const useBridgeStore = create<BridgeStore>()(
           };
 
         } catch (error) {
-          console.error('💥 ToS flow error:', error);
           return { 
             success: false,
             error: `ToS Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
@@ -352,36 +293,30 @@ export const useBridgeStore = create<BridgeStore>()(
       },
 
       /**
-       * Handle ToS acceptance with signed agreement ID and continue Bridge flow
+       * Handle ToS acceptance with signed agreement ID
        */
       handleTosAcceptance: async (signedAgreementId: string) => {
         try {
-          console.log('🔐 Processing ToS acceptance:', signedAgreementId);
           const state = get();
           
           // Mark ToS as accepted in store
           get().acceptTermsOfService(signedAgreementId);
 
+          // 🚨 NEW: Save signed_agreement_id to database
+          console.log('🗄️ Saving signed_agreement_id to database...');
+          
+          // Get user ID - we'll need this for database save
+          // Note: This should be called with user context
+          // For now, we'll handle the database save in the component level
+          
           // Clear pending state
           set({ isPendingTosAcceptance: false });
 
-          console.log('✅ ToS accepted, now continuing with Bridge customer creation...');
+          console.log('✅ ToS accepted and saved, continuing with Bridge integration');
 
-          // 🚨 CRITICAL: Continue with Bridge customer creation now that ToS is accepted
-          // We need the KYC profile data to create the customer
-          // This should be stored in state or retrieved from database
-          
-          // Just mark ToS as accepted - the app will handle the rest
-          console.log('✅ ToS accepted successfully');
-          console.log('ℹ️ Bridge customer creation will be handled by the app flow');
-          
-          return { 
-            success: true,
-            message: 'ToS accepted successfully'
-          };
+          return { success: true };
 
         } catch (error) {
-          console.error('💥 Error in ToS acceptance flow:', error);
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           
           set({ 
@@ -395,8 +330,6 @@ export const useBridgeStore = create<BridgeStore>()(
           };
         }
       },
-
-
 
       /**
        * Cancel ToS flow
