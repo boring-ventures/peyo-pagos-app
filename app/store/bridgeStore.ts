@@ -292,9 +292,13 @@ export const useBridgeStore = create<BridgeStore>()(
         try {
           console.log('🔐 Starting ToS flow for user...');
           
-          // Use correct deep link redirect URI (per app.json scheme configuration)
-          const redirectUri = 'peyopagos://bridge-tos-callback';
-          console.log('🔄 Using redirect URI:', redirectUri);
+          // Use conditional redirect URI based on environment
+          const isSandbox = process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE === 'true';
+          const redirectUri = isSandbox 
+            ? 'peyopagos://bridge-tos-callback'  // Sandbox: deep link
+            : 'https://app.peyopagos.com/bridge-tos-callback'; // Production: HTTPS URL
+          
+          console.log(`🔄 Using redirect URI (${isSandbox ? 'SANDBOX' : 'PRODUCTION'}):`, redirectUri);
           
           const response = await bridgeService.generateTosLink(redirectUri);
           

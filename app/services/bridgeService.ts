@@ -349,6 +349,25 @@ export const bridgeService = {
     try {
       console.log(`🌉 Starting ToS generation - Mode: ${BRIDGE_SANDBOX_MODE ? 'SANDBOX' : 'PRODUCTION'}`);
       
+      // Validate production configuration
+      if (!BRIDGE_SANDBOX_MODE) {
+        if (!BRIDGE_API_KEY || BRIDGE_API_KEY.includes('test')) {
+          console.error("❌ Production mode detected but using test API key");
+          return {
+            success: false,
+            error: "ToS Error: Invalid API key for production mode",
+          };
+        }
+        
+        if (!redirectUri || !redirectUri.startsWith('https://')) {
+          console.error("❌ Production mode requires HTTPS redirect_uri");
+          return {
+            success: false,
+            error: "ToS Error: Production mode requires HTTPS redirect_uri",
+          };
+        }
+      }
+      
       // In sandbox mode, ToS endpoints don't exist, so we return a dummy response
       if (BRIDGE_SANDBOX_MODE) {
         console.log("🧪 Sandbox mode: Skipping ToS generation, using dummy agreement ID");
@@ -367,28 +386,34 @@ export const bridgeService = {
       // Production mode: Use real ToS endpoint
       console.log("🔐 Production mode: Generating real Bridge ToS link");
       
-                // Build endpoint with redirect_uri as query parameter (per Bridge docs)
-          let endpoint = "/customers/tos_links";
-          if (redirectUri) {
-            endpoint += `?redirect_uri=${encodeURIComponent(redirectUri)}`;
-            console.log(`🔄 Adding redirect_uri as query parameter: ${redirectUri}`);
-          }
-          
-          console.log(`🌉 Making request to: ${BRIDGE_API_URL}${endpoint}`);
-          
-          // Empty body for ToS generation
-          const requestBody = {};
+      // Use correct endpoint without query parameters
+      const endpoint = "/customers/tos_links";
+      console.log(`🌉 Making request to: ${BRIDGE_API_URL}${endpoint}`);
+      
+      // Build request body with redirect_uri (per Bridge docs)
+      const requestBody: any = {};
+      if (redirectUri) {
+        requestBody.redirect_uri = redirectUri;
+        console.log(`🔄 Adding redirect_uri to request body: ${redirectUri}`);
+      }
 
-          const response = await bridgeRequest<BridgeTosResponse>(
-            endpoint,
-            {
-              method: "POST",
-              body: JSON.stringify(requestBody),
-            }
-          );
+      const response = await bridgeRequest<BridgeTosResponse>(
+        endpoint,
+        {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+        }
+      );
 
       if (response.error) {
         console.error("❌ Bridge ToS API Error:", response.error);
+        console.error("🔍 Error details:", {
+          code: response.error.code,
+          message: response.error.message,
+          endpoint: `${BRIDGE_API_URL}${endpoint}`,
+          requestBody: requestBody,
+          sandboxMode: BRIDGE_SANDBOX_MODE
+        });
         return {
           success: false,
           error: `ToS Error: ${response.error.message}`,
