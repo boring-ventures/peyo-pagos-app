@@ -1,5 +1,7 @@
 import { ActionCard } from '@/app/components/ActionCard';
+import { EventTimeline } from '@/app/components/analytics/EventTimeline';
 import { BridgeIntegrationCard } from '@/app/components/bridge/BridgeIntegrationCard';
+import { UserTagDisplay } from '@/app/components/profile/UserTagDisplay';
 import { ProfileInfoRow } from '@/app/components/ProfileInfoRow';
 import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedText } from '@/app/components/ThemedText';
@@ -126,6 +128,45 @@ export default function ProfileScreen() {
           />
         </View>
 
+        {/* User Tag Section */}
+        <View style={styles.sectionContainer}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Mi Código de Usuario
+          </ThemedText>
+          
+          {userTag ? (
+            <UserTagDisplay 
+              userTag={userTag}
+              isLoading={isLoadingUserTag}
+              size="medium"
+              showCopyButton={true}
+            />
+          ) : (
+            <ThemedText style={styles.noDataText}>
+              {isLoadingUserTag ? 'Cargando...' : 'Código no disponible'}
+            </ThemedText>
+          )}
+        </View>
+
+        {/* User Journey Progress Section */}
+        <View style={styles.sectionContainer}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Mi Progreso
+          </ThemedText>
+          
+          {user?.id ? (
+            <EventTimeline 
+              userId={user.id}
+              maxEvents={10}
+              showMetadata={false}
+            />
+          ) : (
+            <ThemedText style={styles.noDataText}>
+              No hay datos de progreso disponibles
+            </ThemedText>
+          )}
+        </View>
+
         {/* Bridge Integration Section */}
         <View style={styles.sectionContainer}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -231,5 +272,10 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     width: '100%',
+  },
+  noDataText: {
+    textAlign: 'center',
+    color: '#888',
+    paddingVertical: 10,
   },
 }); 

@@ -1,8 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
+import { Platform } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import useKycStore from '../store/kycStore';
+import { analyticsService } from './analyticsService';
 import { authService } from './authService';
 import { supabaseAdmin } from './supabaseAdmin';
+import { userTagService } from './userTagService';
 
 export interface CreateProfileRequest {
   userId: string;
@@ -93,6 +96,41 @@ export const profileService = {
 
       console.log('✅ Profile created successfully:', profile.id);
 
+      // 📊 Track user sign up event now that profile exists in database
+      console.log('📊 Tracking user sign up event...');
+      try {
+        await analyticsService.trackSignUp(profile.id, {
+          email: user.email || '',
+          signUpMethod: 'email',
+          platform: Platform.OS as 'ios' | 'android' | 'web',
+        });
+        console.log('✅ Sign up event tracked successfully');
+      } catch (error) {
+        console.warn('⚠️ Failed to track sign up event:', error);
+        // Don't fail the KYC process if analytics fails
+      }
+
+      // 🏷️ Generate unique user tag for the new profile
+      console.log('🏷️ Generating unique user tag...');
+      try {
+        const tagResult = await userTagService.generateAndAssignUserTag(user.id);
+        if (tagResult.success && tagResult.data) {
+          console.log('✅ User tag generated:', tagResult.data);
+          
+          // Update auth store with new user tag
+          const { updateUserTag } = useAuthStore.getState();
+          updateUserTag(tagResult.data);
+          
+          console.log('✅ User tag updated in auth store');
+        } else {
+          console.warn('⚠️ Failed to generate user tag:', tagResult.error);
+          // Don't fail the entire KYC process if tag generation fails
+        }
+      } catch (error) {
+        console.error('❌ Error generating user tag:', error);
+        // Continue with KYC process even if tag generation fails
+      }
+
       // Create KYCProfile in database (using Prisma schema structure)
       const kycProfileId = createId(); // Generate ID explicitly
       const kycProfileData = {
@@ -125,6 +163,36 @@ export const profileService = {
       }
 
       console.log('✅ KYC Profile created successfully:', kycProfile.id);
+
+      // 📊 Track KYC submitted event for analytics
+      console.log('📊 Tracking KYC submitted event...');
+      try {
+        await analyticsService.trackKycSubmitted(profile.id, {
+          documentsCount: 2, // Typically id document + selfie
+          kycStep: 'completed',
+          timeToComplete: 0, // Could calculate actual time if needed
+          documentTypes: ['id_front', 'selfie'], // Based on typical KYC flow
+          hasProfilePhoto: true
+        });
+        console.log('✅ KYC submitted event tracked');
+      } catch (error) {
+        console.warn('⚠️ Failed to track KYC submitted event:', error);
+        // Don't fail KYC process if analytics fails
+      }
+
+      // 📊 Track KYC under verification event
+      console.log('📊 Tracking KYC under verification event...');
+      try {
+        await analyticsService.trackKycUnderVerification(profile.id, {
+          bridgeCustomerId: '', // Will be updated when bridge integration completes
+          bridgeStatus: 'pending',
+          submittedAt: new Date().toISOString(),
+          expectedProcessingTime: 5 // minutes
+        });
+        console.log('✅ KYC under verification event tracked');
+      } catch (error) {
+        console.warn('⚠️ Failed to track KYC under verification event:', error);
+      }
 
       // Create Address record (using Prisma schema structure)
       const addressId = createId(); // Generate ID explicitly

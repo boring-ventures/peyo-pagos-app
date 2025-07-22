@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { analyticsService } from '../services/analyticsService';
 import { bridgeService } from '../services/bridgeService';
 import { profileService } from '../services/profileService';
 import {
@@ -9,6 +10,7 @@ import {
     BridgeWallet,
     KycProfileForBridge
 } from '../types/BridgeTypes';
+import { useAuthStore } from './authStore';
 
 // Bridge Store State
 interface BridgeState {
@@ -460,6 +462,42 @@ export const useBridgeStore = create<BridgeStore>()(
             }
           } else {
             console.log('ℹ️ No endorsements to save');
+          }
+
+          // 📊 Track KYC decision event based on customer status
+          console.log('📊 Tracking KYC decision event...');
+          try {
+            const { userTag } = useAuthStore.getState();
+            const currentTime = new Date().toISOString();
+            
+            // Determine if KYC was approved or rejected based on customer verification status
+            if (customer.verification_status === 'active') {
+              await analyticsService.trackKycApproved(kycProfile.userId, {
+                bridgeCustomerId: customer.id,
+                userTag: userTag || '',
+                approvedAt: currentTime,
+                timeToApproval: 300, // 5 minutes typical processing time
+                autoApproved: true // Since it's automatic approval
+              });
+              console.log('✅ KYC approved event tracked');
+              
+            } else if (customer.verification_status === 'rejected') {
+              await analyticsService.trackKycRejected(kycProfile.userId, {
+                bridgeCustomerId: customer.id,
+                rejectionReason: customer.requirements_due?.[0] || 'Unknown reason',
+                rejectedAt: currentTime,
+                timeToRejection: 300, // 5 minutes typical processing time
+                canRetry: true,
+                requiredActions: customer.requirements_due || []
+              });
+              console.log('✅ KYC rejected event tracked');
+            } else {
+              // For other statuses (pending, in_review, suspended), we already tracked under_verification
+              console.log('ℹ️ KYC status is pending/in_review/suspended - already tracked as under_verification');
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to track KYC decision event:', error);
+            // Don't fail the bridge integration if analytics fails
           }
 
           return { 

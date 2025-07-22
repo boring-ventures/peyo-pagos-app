@@ -3,6 +3,7 @@ import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
 import { BridgeProgressIndicator } from '@/app/components/bridge/BridgeProgressIndicator';
 import { BridgeToSWebView } from '@/app/components/bridge/BridgeToSWebView';
+import { UserTagDisplay } from '@/app/components/profile/UserTagDisplay';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
 import { profileService } from '@/app/services/profileService';
 import { useBridgeStore } from '@/app/store';
@@ -229,6 +230,23 @@ export default function KycSuccessScreen() {
           <ThemedText style={styles.subtitle}>
             Tu cuenta ha sido verificada exitosamente. Ya puedes acceder a todas las funciones de Peyo Pagos.
           </ThemedText>
+
+          {/* User Tag Display */}
+          {userTag && (
+            <View style={{ marginVertical: 20, alignItems: 'center' }}>
+              <ThemedText style={[styles.subtitle, { marginBottom: 12, fontWeight: '600' }]}>
+                Tu código de usuario
+              </ThemedText>
+              <UserTagDisplay 
+                userTag={userTag}
+                size="large"
+                showCopyButton={true}
+              />
+              <ThemedText style={[styles.subtitle, { marginTop: 12, fontSize: 14, opacity: 0.7, textAlign: 'center' }]}>
+                Guarda este código para futuras referencias
+              </ThemedText>
+            </View>
+          )}
 
           {/* Bridge Integration Progress */}
           {showBridgeIntegration && (
