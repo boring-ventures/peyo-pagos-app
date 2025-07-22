@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { analyticsService } from '../services/analyticsService';
 import { bridgeService } from '../services/bridgeService';
 import { profileService } from '../services/profileService';
+import { walletService } from '../services/walletService';
 import {
     BridgeCapabilityStatus,
     BridgeVerificationStatus,
@@ -498,6 +499,37 @@ export const useBridgeStore = create<BridgeStore>()(
           } catch (error) {
             console.warn('⚠️ Failed to track KYC decision event:', error);
             // Don't fail the bridge integration if analytics fails
+          }
+
+          // 💳 NEW: Auto-create first wallet for active customers
+          if (customer.verification_status === 'active') {
+            console.log('💳 Auto-creating first Solana wallet for new customer...');
+            try {
+              const firstWalletResult = await walletService.createWallet({
+                profileId: kycProfile.userId,
+                customerId: customer.id,
+                chain: 'solana',
+                currency: 'usdc',
+                walletTag: 'general_use',
+                bridgeTags: ['primary', 'auto-created']
+              });
+
+              if (firstWalletResult.success && firstWalletResult.data) {
+                console.log('✅ First wallet created automatically:', {
+                  walletId: firstWalletResult.data.id,
+                  address: firstWalletResult.data.address,
+                  chain: firstWalletResult.data.chain
+                });
+              } else {
+                console.warn('⚠️ Failed to create first wallet automatically:', firstWalletResult.error);
+                // Don't fail the entire Bridge integration if wallet creation fails
+              }
+            } catch (error) {
+              console.warn('⚠️ Error during automatic first wallet creation:', error);
+              // Don't fail the entire Bridge integration if wallet creation fails
+            }
+          } else {
+            console.log('ℹ️ Customer not active, skipping automatic wallet creation');
           }
 
           return { 

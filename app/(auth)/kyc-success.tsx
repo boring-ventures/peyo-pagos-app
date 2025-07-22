@@ -6,6 +6,7 @@ import { BridgeToSWebView } from '@/app/components/bridge/BridgeToSWebView';
 import { UserTagDisplay } from '@/app/components/profile/UserTagDisplay';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
 import { profileService } from '@/app/services/profileService';
+import { walletService } from '@/app/services/walletService';
 import { useBridgeStore } from '@/app/store';
 import { useAuthStore } from '@/app/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +44,11 @@ export default function KycSuccessScreen() {
   // ToS related states
   const [showToSWebView, setShowToSWebView] = useState(false);
   const [currentKycProfile, setCurrentKycProfile] = useState<any>(null);
+  
+  // 💳 NEW: Wallet sync states
+  const [isWalletSyncing, setIsWalletSyncing] = useState(false);
+  const [walletSyncCompleted, setWalletSyncCompleted] = useState(false);
+  const [walletSyncError, setWalletSyncError] = useState<string | null>(null);
   
   // Check if we're in production mode
   const isProductionMode = process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE !== 'true';
@@ -107,6 +113,10 @@ export default function KycSuccessScreen() {
             // Don't mark as completed yet - wait for ToS
           } else {
             console.log('✅ Bridge integration completed successfully');
+            
+            // 💳 NEW: Auto-sync wallets after successful Bridge integration
+            await autoSyncWallets();
+            
             setBridgeIntegrationCompleted(true);
           }
         } else {
@@ -206,6 +216,48 @@ export default function KycSuccessScreen() {
     );
   };
 
+  // 💳 NEW: Auto-sync wallets after successful Bridge integration
+  const autoSyncWallets = async () => {
+    if (!user?.id || !bridgeCustomerId) {
+      console.log('⚠️ Missing user ID or Bridge customer ID for wallet sync');
+      return;
+    }
+
+    console.log('💳 Starting auto-sync wallets after KYC success...');
+    setIsWalletSyncing(true);
+    setWalletSyncError(null);
+
+    try {
+      console.log('💳 Syncing wallets for user:', { userId: user.id, customerId: bridgeCustomerId });
+
+      // Sync wallets from Bridge to database using user.id as profileId
+      const syncResult = await walletService.syncWallets(user.id, bridgeCustomerId);
+      
+      if (syncResult.success) {
+        console.log(`✅ Wallet sync completed successfully: ${syncResult.syncedCount} wallets synced`);
+        setWalletSyncCompleted(true);
+        
+        // Show success message if wallets were found/created
+        if (syncResult.createdCount > 0) {
+          Alert.alert(
+            'Wallets Synchronized',
+            `Found and synchronized ${syncResult.createdCount} wallet${syncResult.createdCount > 1 ? 's' : ''} from Bridge.`,
+            [{ text: 'Great!' }]
+          );
+        }
+      } else {
+        console.error('❌ Wallet sync failed:', syncResult.errors);
+        setWalletSyncError(syncResult.errors.join(', '));
+      }
+    } catch (error) {
+      console.error('💥 Error during wallet sync:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setWalletSyncError(errorMessage);
+    } finally {
+      setIsWalletSyncing(false);
+    }
+  };
+
   // Show Bridge integration status
   const showBridgeIntegration = process.env.EXPO_PUBLIC_BRIDGE_API_KEY && bridgeIntegrationStarted;
   const canContinue = bridgeIntegrationCompleted || !showBridgeIntegration;
@@ -265,6 +317,40 @@ export default function KycSuccessScreen() {
                   <ThemedText style={styles.bridgeSuccessText}>
                     Wallet configurada exitosamente
                   </ThemedText>
+                </View>
+              )}
+              
+              {/* 💳 NEW: Wallet Sync Progress */}
+              {bridgeIntegrationCompleted && bridgeCustomerId && (
+                <View style={styles.walletSyncContainer}>
+                  {isWalletSyncing && (
+                    <View style={styles.syncingContainer}>
+                      <Animated.View style={[styles.loadingIndicator]}>
+                        <Ionicons name="sync" size={20} color={tintColor} />
+                      </Animated.View>
+                      <ThemedText style={styles.syncingText}>
+                        Sincronizando wallets...
+                      </ThemedText>
+                    </View>
+                  )}
+                  
+                  {walletSyncCompleted && !isWalletSyncing && (
+                    <View style={styles.bridgeSuccessContainer}>
+                      <Ionicons name="wallet" size={20} color={successColor} />
+                      <ThemedText style={[styles.bridgeSuccessText, { fontSize: 14 }]}>
+                        Wallets sincronizadas
+                      </ThemedText>
+                    </View>
+                  )}
+                  
+                  {walletSyncError && !isWalletSyncing && (
+                    <View style={styles.syncErrorContainer}>
+                      <Ionicons name="warning" size={20} color="#FF9800" />
+                      <ThemedText style={styles.syncErrorText}>
+                        Error sincronizando wallets
+                      </ThemedText>
+                    </View>
+                  )}
                 </View>
               )}
               
@@ -443,5 +529,35 @@ const styles = StyleSheet.create({
   skipButton: {
     width: '100%',
     borderColor: '#FF9800',
+  },
+  walletSyncContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  syncingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  loadingIndicator: {
+    marginRight: 8,
+  },
+  syncingText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  syncErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    padding: 8,
+    borderRadius: 6,
+  },
+  syncErrorText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: '#FF9800',
+    flex: 1,
   },
 }); 

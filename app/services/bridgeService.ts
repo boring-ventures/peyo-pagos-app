@@ -638,8 +638,7 @@ export const bridgeService = {
     error?: string;
   }> => {
     return bridgeService.createWallet(customerId, {
-      currency: "usdc",
-      network: "base", // Using Base network as default
+      chain: "solana", // Using Solana as per Bridge.xyz documentation
     });
   },
 

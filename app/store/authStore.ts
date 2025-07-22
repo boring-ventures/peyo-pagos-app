@@ -1,9 +1,15 @@
 import { ImageFile } from "@/app/components/ImagePickerModal";
 import { authService } from "@/app/services/authService";
+import { walletService } from "@/app/services/walletService";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { VerificationStatus } from "../types/KycTypes";
+import {
+  Wallet,
+  WalletServiceCreateRequest,
+  WalletSyncResult
+} from "../types/WalletTypes";
 
 // Session key for AsyncStorage
 const SESSION_KEY = 'supabase.session';
@@ -27,6 +33,7 @@ type AuthState = {
   error: string | null;
   kycStatus: VerificationStatus;
   userTag: string | null; // 🏷️ NEW: User tag state
+  wallet: Wallet | null; // 🏷️ NEW: Wallet state
 
   // Acciones
   initialize: () => Promise<void>;
@@ -47,6 +54,18 @@ type AuthState = {
   // 🏷️ NEW: User tag management actions
   updateUserTag: (userTag: string | null) => void;
   loadUserTag: () => Promise<void>;
+
+  // 💳 NEW: Wallet management actions  
+  wallets: Wallet[];
+  walletsLoading: boolean;
+  walletsError: string | null;
+  walletsSyncedAt: Date | null;
+  loadUserWallets: () => Promise<boolean>;
+  createWallet: (request: WalletServiceCreateRequest) => Promise<Wallet | null>;
+  syncWallets: () => Promise<WalletSyncResult>;
+  refreshWallets: () => Promise<boolean>;
+  clearWalletError: () => void;
+  setWalletLoading: (loading: boolean) => void;
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -57,6 +76,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
   kycStatus: 'pending',
   userTag: null, // 🏷️ NEW: Initialize user tag as null
+  
+  // 💳 NEW: Initialize wallet state
+  wallets: [],
+  walletsLoading: false,
+  walletsError: null,
+  walletsSyncedAt: null,
+  wallet: null, // 🏷️ NEW: Initialize wallet as null
 
   initialize: async () => {
     set({ isLoading: true });
@@ -414,6 +440,183 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('💥 Error loading user tag:', error);
     }
+  },
+
+  // 💳 NEW: Wallet management actions implementation
+  loadUserWallets: async () => {
+    const { user } = get();
+    if (!user?.id) {
+      console.log('⚠️ No user ID available for loading wallets');
+      return false;
+    }
+
+    set({ walletsLoading: true, walletsError: null });
+    try {
+      console.log('💳 Loading user wallets...');
+      const result = await walletService.getWallets(user.id);
+      
+      if (result.success && result.data) {
+        set({ 
+          wallets: result.data,
+          walletsLoading: false,
+          walletsSyncedAt: new Date(),
+          walletsError: null
+        });
+        console.log('✅ Wallets loaded successfully:', result.data.length);
+        return true;
+      } else {
+        set({ 
+          walletsLoading: false,
+          walletsError: result.error || 'Failed to load wallets'
+        });
+        console.error('❌ Failed to load wallets:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('💥 Error loading wallets:', error);
+      set({ 
+        walletsLoading: false,
+        walletsError: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return false;
+    }
+  },
+
+  createWallet: async (request: WalletServiceCreateRequest) => {
+    const { user } = get();
+    if (!user?.id) {
+      console.log('⚠️ No user ID available for creating wallet');
+      return null;
+    }
+
+    // Get Bridge customer ID from Bridge store
+    const { default: useBridgeStore } = await import('./bridgeStore');
+    const bridgeState = useBridgeStore.getState();
+    const bridgeCustomerId = bridgeState.bridgeCustomerId;
+
+    if (!bridgeCustomerId) {
+      console.error('❌ No Bridge customer ID available for wallet creation');
+      set({ walletsError: 'Bridge customer ID required for wallet creation' });
+      return null;
+    }
+
+    set({ walletsLoading: true, walletsError: null });
+    try {
+      console.log('💳 Creating new wallet...');
+      
+      // Prepare the complete request with all required fields
+      const completeRequest: WalletServiceCreateRequest = {
+        ...request,
+        profileId: user.id,
+        customerId: bridgeCustomerId,
+      };
+      
+      const result = await walletService.createWallet(completeRequest);
+      
+      if (result.success && result.data) {
+        // Add the new wallet to the current list
+        const currentWallets = get().wallets;
+        set({ 
+          wallets: [...currentWallets, result.data],
+          walletsLoading: false,
+          walletsError: null
+        });
+        console.log('✅ Wallet created successfully:', result.data);
+        return result.data;
+      } else {
+        set({ 
+          walletsLoading: false,
+          walletsError: result.error || 'Failed to create wallet'
+        });
+        console.error('❌ Failed to create wallet:', result.error);
+        return null;
+      }
+    } catch (error) {
+      console.error('💥 Error creating wallet:', error);
+      set({ 
+        walletsLoading: false,
+        walletsError: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return null;
+    }
+  },
+
+  syncWallets: async () => {
+    const { user } = get();
+    if (!user?.id) {
+      console.log('⚠️ No user ID available for syncing wallets');
+      return { 
+        success: false, 
+        syncedCount: 0, 
+        createdCount: 0, 
+        updatedCount: 0, 
+        errors: ['No user ID available'] 
+      };
+    }
+
+    // Get Bridge customer ID from Bridge store
+    const { default: useBridgeStore } = await import('./bridgeStore');
+    const bridgeState = useBridgeStore.getState();
+    const bridgeCustomerId = bridgeState.bridgeCustomerId;
+
+    if (!bridgeCustomerId) {
+      console.error('❌ No Bridge customer ID available for wallet sync');
+      return { 
+        success: false, 
+        syncedCount: 0, 
+        createdCount: 0, 
+        updatedCount: 0, 
+        errors: ['Bridge customer ID required for wallet sync'] 
+      };
+    }
+
+    set({ walletsLoading: true, walletsError: null });
+    try {
+      console.log('💳 Syncing wallets...');
+      const result = await walletService.syncWallets(user.id, bridgeCustomerId);
+      
+      if (result.success) {
+        // Reload wallets after sync
+        await get().loadUserWallets();
+        set({ walletsLoading: false });
+        console.log('✅ Wallets synced successfully');
+        return result;
+      } else {
+        set({ 
+          walletsLoading: false,
+          walletsError: result.errors.join(', ') || 'Failed to sync wallets'
+        });
+        console.error('❌ Failed to sync wallets:', result.errors);
+        return result;
+      }
+    } catch (error) {
+      console.error('💥 Error syncing wallets:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      set({ 
+        walletsLoading: false,
+        walletsError: errorMessage
+      });
+      return { 
+        success: false, 
+        syncedCount: 0, 
+        createdCount: 0, 
+        updatedCount: 0, 
+        errors: [errorMessage] 
+      };
+    }
+  },
+
+  refreshWallets: async () => {
+    console.log('🔄 Refreshing wallets...');
+    return await get().loadUserWallets();
+  },
+
+  clearWalletError: () => {
+    set({ walletsError: null });
+  },
+
+  setWalletLoading: (loading: boolean) => {
+    set({ walletsLoading: loading });
   },
 }));
 

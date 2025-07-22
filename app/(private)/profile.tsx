@@ -8,7 +8,13 @@ import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
 import { ThemeSelector } from '@/app/components/ThemeSelector';
 import { UserAvatar } from '@/app/components/UserAvatar';
+import { CreateWalletModal } from '@/app/components/wallet/CreateWalletModal';
+import { WalletList } from '@/app/components/wallet/WalletList';
+import { WalletSyncButton } from '@/app/components/wallet/WalletSyncButton';
+import { walletService } from '@/app/services/walletService';
+import { useBridgeStore } from '@/app/store';
 import { useAuthStore } from '@/app/store/authStore';
+import { Wallet } from '@/app/types/WalletTypes';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
@@ -16,8 +22,16 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, isAuthenticated, userTag, loadUserTag } = useAuthStore(); // 🏷️ NEW: Include userTag and loadUserTag
+  const { bridgeCustomerId } = useBridgeStore(); // 💳 NEW: Get Bridge customer ID for wallet operations
+  
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingUserTag, setIsLoadingUserTag] = useState(false);
+  
+  // 💳 NEW: Wallet-related states
+  const [userWallets, setUserWallets] = useState<Wallet[]>([]);
+  const [walletsLoading, setWalletsLoading] = useState(false);
+  const [walletsError, setWalletsError] = useState<string | null>(null);
+  const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
 
   // If not authenticated, ensure redirect happens (handled by _layout.tsx)
   useEffect(() => {
@@ -44,6 +58,90 @@ export default function ProfileScreen() {
 
     loadUserTagIfNeeded();
   }, [isAuthenticated, user, userTag, loadUserTag]);
+
+  // 💳 NEW: Load user wallets
+  const loadUserWallets = async () => {
+    if (!user?.id) return;
+    
+    setWalletsLoading(true);
+    setWalletsError(null);
+    
+    try {
+      console.log('💳 Loading wallets for user:', user.id);
+      const result = await walletService.getWallets(user.id);
+      
+      if (result.success && result.data) {
+        setUserWallets(result.data);
+        console.log(`✅ Loaded ${result.data.length} wallets`);
+      } else {
+        setWalletsError(result.error || 'Failed to load wallets');
+        console.error('❌ Failed to load wallets:', result.error);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setWalletsError(errorMessage);
+      console.error('💥 Error loading wallets:', error);
+    } finally {
+      setWalletsLoading(false);
+    }
+  };
+
+  // 💳 NEW: Sync wallets from Bridge
+  const syncWallets = async () => {
+    if (!user?.id || !bridgeCustomerId) {
+      Alert.alert(
+        'Sync Not Available',
+        'Bridge customer ID not found. Please complete KYC first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    setWalletsLoading(true);
+    setWalletsError(null);
+    
+    try {
+      console.log('🔄 Syncing wallets from Bridge...');
+      const result = await walletService.syncWallets(user.id, bridgeCustomerId);
+      
+      if (result.success) {
+        console.log(`✅ Sync completed: ${result.syncedCount} synced, ${result.createdCount} created`);
+        
+        // Reload wallets to show updated data
+        await loadUserWallets();
+        
+        Alert.alert(
+          'Wallets Synchronized',
+          `Successfully synced ${result.syncedCount} wallet${result.syncedCount !== 1 ? 's' : ''}${result.createdCount > 0 ? ` (${result.createdCount} new)` : ''}.`,
+          [{ text: 'Great!' }]
+        );
+      } else {
+        setWalletsError(result.errors.join(', '));
+        Alert.alert('Sync Failed', result.errors.join(', '), [{ text: 'OK' }]);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setWalletsError(errorMessage);
+      console.error('💥 Error syncing wallets:', error);
+      Alert.alert('Sync Error', errorMessage, [{ text: 'OK' }]);
+    } finally {
+      setWalletsLoading(false);
+    }
+  };
+
+  // 💳 NEW: Handle wallet creation success
+  const handleWalletCreated = async (wallet: Wallet) => {
+    console.log('✅ New wallet created:', wallet.id);
+    // Reload wallets to include the new one
+    await loadUserWallets();
+  };
+
+  // Load wallets when component mounts or user changes
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      loadUserWallets();
+    }
+  }, [isAuthenticated, user?.id]);
 
   const handleLogout = async () => {
     setIsLoading(true);
@@ -148,6 +246,51 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* 💳 NEW: Wallets Section */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.walletSectionHeader}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Mis Wallets
+            </ThemedText>
+            <View style={styles.walletActions}>
+              <WalletSyncButton
+                onSync={syncWallets}
+                isLoading={walletsLoading}
+                showText={false}
+                disabled={!bridgeCustomerId}
+              />
+              {walletService.canCreateWallets() && bridgeCustomerId && (
+                <ThemedButton
+                  title="+"
+                  onPress={() => setShowCreateWalletModal(true)}
+                  style={styles.createWalletButton}
+                />
+              )}
+            </View>
+          </View>
+          
+          <WalletList
+            wallets={userWallets}
+            isLoading={walletsLoading}
+            error={walletsError}
+            onRefresh={loadUserWallets}
+            onWalletPress={(wallet: Wallet) => {
+              console.log('Wallet pressed:', wallet.id);
+              // Future: navigate to wallet details
+            }}
+          />
+          
+          {!walletsLoading && userWallets.length === 0 && !walletsError && (
+            <ThemedText style={styles.noDataText}>
+              No hay wallets disponibles.
+              {bridgeCustomerId 
+                ? ' Presiona el botón de sincronizar para obtener tus wallets de Bridge.' 
+                : ' Completa tu KYC para acceder a tus wallets.'
+              }
+            </ThemedText>
+          )}
+        </View>
+
         {/* User Journey Progress Section */}
         <View style={styles.sectionContainer}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -221,6 +364,15 @@ export default function ProfileScreen() {
           />
         </View>
       </ScrollView>
+      
+      {/* 💳 NEW: Create Wallet Modal */}
+      <CreateWalletModal
+        isVisible={showCreateWalletModal}
+        onClose={() => setShowCreateWalletModal(false)}
+        onSuccess={handleWalletCreated}
+        profileId={user?.id || ''}
+        customerId={bridgeCustomerId || ''}
+      />
     </ThemedView>
   );
 }
@@ -277,5 +429,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#888',
     paddingVertical: 10,
+  },
+  walletSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  walletActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  createWalletButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#007bff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
   },
 }); 
