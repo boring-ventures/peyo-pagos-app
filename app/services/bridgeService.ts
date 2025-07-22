@@ -1,13 +1,13 @@
 import Constants from "expo-constants";
 import {
-    BridgeApiResponse,
-    BridgeCreateCustomerResponse,
-    BridgeCustomer,
-    BridgeCustomerRequest,
-    BridgeDocumentType,
-    BridgeTosLinkResponse,
-    BridgeTosResponse,
-    KycProfileForBridge
+  BridgeApiResponse,
+  BridgeCreateCustomerResponse,
+  BridgeCustomer,
+  BridgeCustomerRequest,
+  BridgeDocumentType,
+  BridgeTosLinkResponse,
+  BridgeTosResponse,
+  KycProfileForBridge
 } from "../types/BridgeTypes";
 
 // Bridge API Configuration
@@ -20,9 +20,24 @@ const BRIDGE_API_KEY =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_BRIDGE_API_KEY ||
   process.env.EXPO_PUBLIC_BRIDGE_API_KEY;
 
-const BRIDGE_SANDBOX_MODE =
-  Constants.expoConfig?.extra?.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE ||
-  process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE === 'true';
+// FIX: Corregir la evaluación del modo sandbox
+const BRIDGE_SANDBOX_MODE = (() => {
+  const envValue = Constants.expoConfig?.extra?.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE ||
+                   process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE;
+  
+  if (envValue === undefined || envValue === null) {
+    // Si no está definido, asumir sandbox por seguridad
+    console.log("⚠️ BRIDGE_SANDBOX_MODE not defined, defaulting to sandbox mode");
+    return true;
+  }
+  
+  // Convertir string a boolean correctamente
+  const isSandbox = envValue === 'true' || envValue === true;
+  console.log(`🔧 Bridge mode detected: ${isSandbox ? 'SANDBOX' : 'PRODUCTION'}`);
+  console.log(`🔧 Environment value: "${envValue}" (type: ${typeof envValue})`);
+  
+  return isSandbox;
+})();
 
 if (!BRIDGE_API_KEY) {
   console.warn("⚠️ Bridge API key is missing. Bridge features will not work.");
@@ -332,6 +347,8 @@ export const bridgeService = {
    */
   generateTosLink: async (redirectUri?: string): Promise<BridgeTosLinkResponse> => {
     try {
+      console.log(`🌉 Starting ToS generation - Mode: ${BRIDGE_SANDBOX_MODE ? 'SANDBOX' : 'PRODUCTION'}`);
+      
       // In sandbox mode, ToS endpoints don't exist, so we return a dummy response
       if (BRIDGE_SANDBOX_MODE) {
         console.log("🧪 Sandbox mode: Skipping ToS generation, using dummy agreement ID");
@@ -350,37 +367,52 @@ export const bridgeService = {
       // Production mode: Use real ToS endpoint
       console.log("🔐 Production mode: Generating real Bridge ToS link");
       
-      // Build request body - empty for basic ToS generation
-      const requestBody: any = {};
-      
-      // Note: redirect_uri is passed as query parameter, not in body
-      let endpoint = "/customers/tos_links";
-      if (redirectUri) {
-        // The redirect_uri is passed as query parameter according to Bridge docs
-        endpoint += `?redirect_uri=${encodeURIComponent(redirectUri)}`;
-      }
+                // Build endpoint with redirect_uri as query parameter (per Bridge docs)
+          let endpoint = "/customers/tos_links";
+          if (redirectUri) {
+            endpoint += `?redirect_uri=${encodeURIComponent(redirectUri)}`;
+            console.log(`🔄 Adding redirect_uri as query parameter: ${redirectUri}`);
+          }
+          
+          console.log(`🌉 Making request to: ${BRIDGE_API_URL}${endpoint}`);
+          
+          // Empty body for ToS generation
+          const requestBody = {};
 
-      const response = await bridgeRequest<BridgeTosResponse>(
-        endpoint,
-        {
-          method: "POST",
-          body: JSON.stringify(requestBody),
-        }
-      );
+          const response = await bridgeRequest<BridgeTosResponse>(
+            endpoint,
+            {
+              method: "POST",
+              body: JSON.stringify(requestBody),
+            }
+          );
 
       if (response.error) {
+        console.error("❌ Bridge ToS API Error:", response.error);
         return {
           success: false,
           error: `ToS Error: ${response.error.message}`,
         };
       }
 
+      if (!response.data) {
+        console.error("❌ Bridge ToS API returned no data");
+        return {
+          success: false,
+          error: "ToS Error: No data returned from Bridge API",
+        };
+      }
+
       console.log("✅ Bridge ToS link generated successfully");
+      console.log(`🔗 ToS URL: ${response.data.url}`);
+      console.log(`ℹ️ signed_agreement_id will be provided after user accepts ToS`);
+      
       return {
         success: true,
         data: response.data,
       };
     } catch (error) {
+      console.error("💥 ToS Generation Exception:", error);
       return {
         success: false,
         error: `ToS Generation Failed: ${
