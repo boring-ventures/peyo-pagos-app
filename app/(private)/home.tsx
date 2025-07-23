@@ -4,6 +4,8 @@ import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
 import { TransactionItem } from '@/app/components/TransactionItem';
 import { UserAvatar } from '@/app/components/UserAvatar';
+import { useBridgeAutoRefresh } from '@/app/hooks/useBridgeAutoRefresh';
+import { useRejectedUserCheck } from '@/app/hooks/useRejectedUserCheck';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
 import { useAuthStore } from '@/app/store/authStore';
 import { useRouter } from 'expo-router';
@@ -14,6 +16,12 @@ export default function HomeScreen() {
   const router = useRouter();
   const { profile, user } = useAuthStore();
   const [debugTapCount, setDebugTapCount] = useState(0);
+  
+  // Auto-refresh Bridge status on home screen
+  useBridgeAutoRefresh();
+  
+  // Check for rejected users
+  useRejectedUserCheck();
   
   const textColor = useThemeColor({}, 'text');
   const subtextColor = useThemeColor({}, 'textSecondary');

@@ -487,10 +487,30 @@ export const walletService = {
   },
 
   /**
-   * Get wallets for a profile (from database)
+   * Get wallets for a profile (with optional Bridge sync)
    */
-  getWallets: async (profileId: string): Promise<WalletServiceResponse<Wallet[]>> => {
-    return getWalletsFromDatabase(profileId);
+  getWallets: async (profileId: string, customerId?: string): Promise<WalletServiceResponse<Wallet[]>> => {
+    try {
+      // If customerId is provided, sync with Bridge first
+      if (customerId) {
+        console.log('🔄 Syncing wallets with Bridge before fetching...');
+        const syncResult = await walletService.syncWallets(profileId, customerId);
+        
+        if (!syncResult.success) {
+          console.warn('⚠️ Wallet sync failed, proceeding with local data:', syncResult.errors);
+        }
+      }
+      
+      // Get wallets from database (now potentially updated)
+      return getWalletsFromDatabase(profileId);
+    } catch (error) {
+      console.error('💥 Error in getWallets:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        errorCode: 'WALLET_FETCH_ERROR'
+      };
+    }
   },
 
   /**

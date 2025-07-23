@@ -70,7 +70,7 @@ export default function LoginScreen() {
         console.log('✅ Login successful, determining next step...');
         
         // Get current auth state to determine redirection
-        const { user, profile, kycStatus } = useAuthStore.getState();
+        const { user, profile } = useAuthStore.getState();
         
         if (!user || !profile) {
           console.error('❌ No user/profile data after login');
@@ -82,8 +82,7 @@ export default function LoginScreen() {
           userId: user.id,
           email: user.email,
           role: profile.role,
-          status: profile.status,
-          kycStatus
+          status: profile.status
         });
 
         // Determine redirect based on user role and status
@@ -97,37 +96,27 @@ export default function LoginScreen() {
           return;
         }
 
-        // For regular users, check KYC status
+        // For regular users, we need to check Bridge status to determine next step
         if (profile.role === 'USER') {
-          switch (kycStatus) {
-            case 'completed':
-              console.log('✅ KYC completed - redirecting to home');
+          try {
+            const { bridgeStatusService } = await import('@/app/services/bridgeStatusService');
+            const bridgeAccessResult = await bridgeStatusService.canUserAccessHome(user.id);
+            
+            if (bridgeAccessResult.canAccess) {
+              console.log('✅ Bridge status allows home access - redirecting to home');
               if (pinEnabled) {
                 router.replace('/(private)/enter-pin');
               } else {
                 router.replace('/(private)/home');
               }
-              break;
-              
-            case 'in_progress':
-              console.log('⏳ KYC in review - redirecting to pending screen');
-              router.replace('/(auth)/kyc-pending');
-              break;
-              
-            case 'rejected':
-              console.log('❌ KYC rejected - showing error');
-              Alert.alert(
-                'KYC Rejected', 
-                'Your KYC verification was rejected. Please contact support for assistance.',
-                [{ text: 'OK', onPress: () => logout() }]
-              );
-              break;
-              
-            case 'pending':
-            default:
-              console.log('📋 KYC required - redirecting to welcome');
-              router.replace('/(auth)/welcome');
-              break;
+            } else {
+              console.log('⚠️ Bridge status prevents home access:', bridgeAccessResult.reason);
+              router.replace('/(auth)/bridge-status');
+            }
+          } catch (error) {
+            console.error('❌ Error checking Bridge status:', error);
+            // If Bridge check fails, redirect to bridge status screen
+            router.replace('/(auth)/bridge-status');
           }
         }
       } else {

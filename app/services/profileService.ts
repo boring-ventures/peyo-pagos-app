@@ -153,9 +153,9 @@ export const profileService = {
         phone: user.phone || '',
         birth_date: personalInfo.dateOfBirth,
         nationality: personalInfo.nationality,
-        kyc_status: 'active', // Changed from 'completed' to 'active' (valid enum value)
+        kyc_status: 'not_started', // Start as not_started, will be updated by Bridge status check
         kyc_submitted_at: new Date().toISOString(),
-        kyc_approved_at: new Date().toISOString(),
+        kyc_approved_at: null, // Will be set when Bridge confirms approval
       };
 
       console.log('📋 Creating KYCProfile record...');
@@ -459,6 +459,45 @@ export const profileService = {
     } catch (err) {
       console.error('💥 Error saving Bridge raw request:', err);
       return { success: false, error: `Bridge raw request save failed: ${err instanceof Error ? err.message : 'Unknown error'}` };
+    }
+  },
+
+  /**
+   * Save Bridge raw response to database
+   */
+  saveBridgeRawResponse: async (userId: string, bridgeResponse: any): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🌉 Updating bridge_raw_response in database...', { userId });
+      
+      // Find the profile first
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', userId)
+        .single();
+
+      if (profileError || !profile) {
+        return { success: false, error: `Profile not found: ${profileError?.message}` };
+      }
+
+      const { error } = await supabaseAdmin
+        .from('kyc_profiles')
+        .update({
+          bridge_raw_response: bridgeResponse,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('profile_id', profile.id);
+
+      if (error) {
+        console.error('❌ Bridge raw response update error:', error);
+        return { success: false, error: `Bridge raw response update failed: ${error.message}` };
+      }
+
+      console.log('✅ Bridge raw response saved to database successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('💥 Error saving Bridge raw response:', err);
+      return { success: false, error: `Bridge raw response save failed: ${err instanceof Error ? err.message : 'Unknown error'}` };
     }
   },
 

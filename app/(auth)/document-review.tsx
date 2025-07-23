@@ -362,13 +362,40 @@ export default function VerificationSuccessScreen() {
         updateStepStatus('wallet_creation', 'in_progress');
         
         // Wallet creation is handled by Bridge automatically
-        // We just need to wait a moment and mark as completed
-        setTimeout(() => {
-          updateStepStatus('wallet_creation', 'completed');
-          setProcessCompleted(true);
+        // We need to check the actual wallet status from Bridge
+        console.log('🔄 Checking actual wallet status from Bridge...');
+        
+        // Get Bridge store functions
+        const { syncCustomerStatus } = useBridgeStore.getState();
+        
+        // Sync customer status to get latest wallet information
+        const syncResult = await syncCustomerStatus();
+        
+        if (syncResult.success) {
+          const bridgeState = useBridgeStore.getState();
+          const hasActiveWallet = bridgeState.wallets.length > 0 && 
+                                 bridgeState.wallets.some(wallet => wallet.is_enabled);
+          
+          if (hasActiveWallet) {
+            console.log('✅ Wallet is active, marking as completed');
+            updateStepStatus('wallet_creation', 'completed');
+            setProcessCompleted(true);
+            setCanContinue(true);
+            setIsProcessing(false);
+          } else {
+            console.log('⚠️ Wallet not yet active, marking as pending');
+            updateStepStatus('wallet_creation', 'pending');
+            setProcessCompleted(false);
+            setCanContinue(true);
+            setIsProcessing(false);
+          }
+        } else {
+          console.log('⚠️ Could not sync wallet status, marking as pending');
+          updateStepStatus('wallet_creation', 'pending');
+          setProcessCompleted(false);
           setCanContinue(true);
           setIsProcessing(false);
-        }, 2000);
+        }
         
       } else {
         throw new Error(customerResult.error || 'Failed to create Bridge customer');

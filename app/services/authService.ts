@@ -1244,7 +1244,7 @@ export const authService = {
   },
 
   /**
-   * Comprehensive login with user status and KYC validation
+   * Comprehensive login with user status, KYC validation, and Bridge status check
    */
   signInWithValidation: async (
     email: string,
@@ -1257,7 +1257,7 @@ export const authService = {
     role?: "USER" | "SUPERADMIN";
     kycStatus?: string;
     bridgeCustomerId?: string;
-    nextStep?: "home" | "kyc_pending" | "kyc_required" | "account_disabled";
+    nextStep?: "home" | "kyc_pending" | "kyc_required" | "account_disabled" | "bridge_status";
     error?: string;
   }> => {
     try {
@@ -1296,19 +1296,43 @@ export const authService = {
 
       console.log("✅ User status validation passed");
 
-      // Step 3: For regular users, check KYC status
+      // Step 3: For regular users, check KYC status and Bridge status
       if (userValidation.role === "USER") {
         const kycResult = await authService.checkKycStatus(user.id);
 
         console.log("📋 KYC check result:", kycResult);
 
         // Determine next step based on KYC status
-        let nextStep: "home" | "kyc_pending" | "kyc_required" = "kyc_required";
+        let nextStep: "home" | "kyc_pending" | "kyc_required" | "bridge_status" = "kyc_required";
 
         if (kycResult.hasKyc) {
           switch (kycResult.kycStatus) {
             case "active":
-              nextStep = "home";
+              // Auto-refresh Bridge status on login
+              try {
+                const { bridgeStatusService } = await import('./bridgeStatusService');
+                
+                // Auto-refresh Bridge status first
+                console.log('🔄 Auto-refreshing Bridge status on login...');
+                await bridgeStatusService.autoRefreshOnAppStart(user.id);
+                
+                // Then check if user can access home
+                const bridgeAccessResult = await bridgeStatusService.canUserAccessHome(user.id);
+                
+                if (bridgeAccessResult.canAccess) {
+                  nextStep = "home";
+                } else if (bridgeAccessResult.shouldRedirectToRejected) {
+                  console.log("🚫 User rejected by Bridge, redirecting to rejected screen");
+                  nextStep = "kyc_rejected";
+                } else {
+                  console.log("⚠️ KYC active but Bridge status prevents home access:", bridgeAccessResult.reason);
+                  nextStep = "bridge_status";
+                }
+              } catch (error) {
+                console.error("❌ Error checking Bridge status:", error);
+                // If Bridge check fails, still allow access to home but log the error
+                nextStep = "home";
+              }
               break;
             case "under_review":
             case "awaiting_questionnaire":

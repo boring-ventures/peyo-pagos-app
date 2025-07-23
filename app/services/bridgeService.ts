@@ -99,18 +99,27 @@ const bridgeRequest = async <T>(
 
   try {
     const url = `${BRIDGE_API_URL}${endpoint}`;
-    const idempotencyKey = generateIdempotencyKey();
+    const method = options.method || "GET";
+    
+    // Only include Idempotency-Key for non-GET requests
+    // Bridge API doesn't support Idempotency-Key for GET requests
+    const headers: Record<string, string> = {
+      "Api-Key": BRIDGE_API_KEY,
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
 
-    console.log(`🌉 Bridge API ${options.method || "GET"}: ${endpoint}`);
+    // Add Idempotency-Key only for POST, PUT, PATCH, DELETE requests
+    if (method !== "GET") {
+      const idempotencyKey = generateIdempotencyKey();
+      headers["Idempotency-Key"] = idempotencyKey;
+    }
+
+    console.log(`🌉 Bridge API ${method}: ${endpoint}`);
 
     const response = await fetch(url, {
       ...options,
-      headers: {
-        "Api-Key": BRIDGE_API_KEY,
-        "Idempotency-Key": idempotencyKey,
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
     });
 
     const responseData = await response.json();
@@ -609,6 +618,22 @@ export const bridgeService = {
         endorsements: response.data.endorsements?.length || 0,
         requirements_due: response.data.requirements_due?.length || 0
       });
+
+      // 🚨 NEW: Save Bridge raw response to database AFTER successful creation
+      console.log("🗄️ Saving Bridge raw response to database...");
+      const rawResponseResult = await profileService.saveBridgeRawResponse(
+        kycProfile.userId, 
+        response.data
+      );
+      
+      console.log("🔍 Raw response save result:", rawResponseResult);
+      
+      if (!rawResponseResult.success) {
+        console.warn("⚠️ Bridge raw response save failed:", rawResponseResult.error);
+        // Don't fail the entire operation, just log the warning
+      } else {
+        console.log("✅ Bridge raw response saved to database successfully");
+      }
 
       return {
         success: true,

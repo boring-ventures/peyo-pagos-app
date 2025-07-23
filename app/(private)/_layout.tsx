@@ -34,6 +34,20 @@ export default function PrivateLayout() {
     };
   }, [pinEnabled, router]);
 
+  // Setup session service for security monitoring
+  useEffect(() => {
+    if (pinEnabled) {
+      sessionService.setInactivityCallback(() => {
+        router.replace('/(private)/enter-pin');
+      });
+      sessionService.startInactivityTimer();
+    }
+
+    return () => {
+      sessionService.cleanup();
+    };
+  }, [pinEnabled, router]);
+
   return (
     <Tabs
       screenOptions={{

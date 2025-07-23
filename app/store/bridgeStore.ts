@@ -84,6 +84,13 @@ interface BridgeActions {
   
   // Updates
   updateBridgeData: (data: Partial<BridgeState>) => void;
+  updateBridgeStatus: (data: {
+    isInitialized?: boolean;
+    bridgeCustomerId?: string | null;
+    verificationStatus?: string;
+    hasActiveWallet?: boolean;
+    canAccessHome?: boolean;
+  }) => void;
 }
 
 type BridgeStore = BridgeState & BridgeActions;
@@ -893,6 +900,41 @@ export const useBridgeStore = create<BridgeStore>()(
 
       updateBridgeData: (data: Partial<BridgeState>) => {
         set(data);
+      },
+
+      updateBridgeStatus: (data: {
+        isInitialized?: boolean;
+        bridgeCustomerId?: string | null;
+        verificationStatus?: string;
+        hasActiveWallet?: boolean;
+        canAccessHome?: boolean;
+      }) => {
+        const updateData: Partial<BridgeState> = {};
+        
+        if (data.isInitialized !== undefined) {
+          updateData.isInitialized = data.isInitialized;
+        }
+        
+        if (data.bridgeCustomerId !== undefined) {
+          updateData.bridgeCustomerId = data.bridgeCustomerId;
+        }
+        
+        if (data.verificationStatus !== undefined) {
+          updateData.bridgeVerificationStatus = data.verificationStatus as BridgeVerificationStatus;
+        }
+        
+        if (data.hasActiveWallet !== undefined) {
+          // Update wallet status based on hasActiveWallet
+          const currentWallets = get().wallets;
+          const updatedWallets = currentWallets.map(wallet => ({
+            ...wallet,
+            is_enabled: data.hasActiveWallet || false
+          }));
+          updateData.wallets = updatedWallets;
+        }
+        
+        set(updateData);
+        console.log('🔄 Bridge status updated:', data);
       },
 
       /**

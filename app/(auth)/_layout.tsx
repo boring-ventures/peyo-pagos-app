@@ -43,6 +43,7 @@ export default function AuthLayout() {
       <Stack.Screen name="pin-confirm" options={{ title: 'Confirmar PIN', headerTitle: '' }} />
       <Stack.Screen name="kyc-success" options={{ headerShown: false }} />
       <Stack.Screen name="kyc-pending" options={{ headerShown: false }} />
+      <Stack.Screen name="bridge-status" options={{ headerShown: false }} />
       <Stack.Screen name="welcome" options={{ headerShown: false }} />
     </Stack>
   );
