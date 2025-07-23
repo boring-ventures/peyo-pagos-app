@@ -85,7 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   wallet: null, // 🏷️ NEW: Initialize wallet as null
 
   initialize: async () => {
-    set({ isLoading: true });
+    // set({ isLoading: true });
     try {
       const success = await get().restoreSession();
 
@@ -210,7 +210,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   login: async (email, password) => {
-    set({ isLoading: true, error: null });
+    // set({ isLoading: true, error: null });
     try {
       console.log('🔐 Starting comprehensive login...', { email });
 
@@ -313,7 +313,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   register: async (email, password, profile, avatar) => {
-    set({ isLoading: true, error: null });
+    // set({ isLoading: true, error: null });
     try {
       const { user, error } = await authService.signUp(
         email,
@@ -359,7 +359,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    set({ isLoading: true });
+    // set({ isLoading: true });
     try {
       console.log('🚪 Starting logout process...');
       

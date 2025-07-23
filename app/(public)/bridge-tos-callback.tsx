@@ -1,8 +1,8 @@
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
+import { useBridgeToS } from "@/app/hooks/useBridgeToS";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
-import { useBridgeStore } from "@/app/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -11,7 +11,7 @@ import { Alert, StyleSheet, View } from "react-native";
 export default function BridgeToSCallbackScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { handleTosAcceptance } = useBridgeStore();
+  const { handleToSCallback } = useBridgeToS();
   const tintColor = useThemeColor({}, "tint");
   const [isProcessing, setIsProcessing] = useState(true);
 
@@ -28,103 +28,44 @@ export default function BridgeToSCallbackScreen() {
           Alert.alert(
             "Error",
             "No se recibió confirmación de aceptación de términos.",
-            [{ text: "OK", onPress: () => router.back() }]
+            [{ text: "OK", onPress: () => router.replace('/(private)/profile') }]
           );
           return;
         }
 
         console.log("✅ Processing ToS acceptance with ID:", signedAgreementId);
 
-        // Handle ToS acceptance in Bridge store
-        const result = await handleTosAcceptance(signedAgreementId);
+        // Handle ToS acceptance using the new hook
+        const result = await handleToSCallback(`peyopagos://bridge-tos-callback?signed_agreement_id=${signedAgreementId}`);
 
         if (result.success) {
           console.log("✅ ToS acceptance processed successfully");
-
-          // Now that ToS is accepted, continue with Bridge customer creation
-          console.log("🔄 Continuing with Bridge customer creation...");
-
-          try {
-            // Get current user and re-initialize Bridge integration
-            const { kycService } = await import("@/app/services/kycService");
-            const { authService } = await import("@/app/services/authService");
-            const { profileService } = await import(
-              "@/app/services/profileService"
-            );
-
-            const currentUser = await authService.getCurrentUser();
-            if (!currentUser) {
-              throw new Error("No current user found");
-            }
-
-            // Get profile data and create Bridge customer
-            console.log(
-              "🔍 Getting profile data for Bridge customer creation..."
-            );
-            const profileData = await profileService.getProfileForBridge(
-              currentUser.id
-            );
-
-            if (!profileData) {
-              throw new Error("Failed to get profile data for Bridge");
-            }
-
-            // Convert to Bridge format
-            const bridgeProfile =
-              await kycService.convertDatabaseProfileToBridge(profileData);
-            if (!bridgeProfile) {
-              throw new Error("Failed to convert profile to Bridge format");
-            }
-
-            // Create Bridge customer with the signed agreement ID
-            const { createBridgeCustomer } = useBridgeStore.getState();
-            const customerResult = await createBridgeCustomer(
-              bridgeProfile,
-              signedAgreementId
-            );
-
-            if (customerResult.success && customerResult.customerId) {
-              console.log(
-                "✅ Bridge customer created successfully:",
-                customerResult.customerId
-              );
-
-              // Try to create default wallet
-              const { createDefaultWallet } = useBridgeStore.getState();
-              const walletResult = await createDefaultWallet();
-
-              if (walletResult.success) {
-                console.log("✅ Default wallet created successfully");
-              } else {
-                console.warn("⚠️ Wallet creation failed:", walletResult.error);
+          
+          // Show success message and redirect to profile
+          Alert.alert(
+            "Términos Aceptados",
+            "Los términos de servicio han sido aceptados exitosamente.",
+            [
+              {
+                text: "Continuar",
+                onPress: () => {
+                  // Navigate to profile screen
+                  router.replace('/(private)/profile');
+                }
               }
-
-              // Mark as initialized
-              useBridgeStore.setState({
-                isInitialized: true,
-                lastSyncAt: new Date().toISOString(),
-              });
-
-              console.log("🎉 Bridge integration completed successfully!");
-            } else {
-              console.error(
-                "❌ Bridge customer creation failed:",
-                customerResult.error
-              );
-            }
-          } catch (bridgeError) {
-            console.error("💥 Error continuing Bridge flow:", bridgeError);
-            // Don't show error to user - this is background process
-          }
-
-          // Return to previous screen
-          router.back();
+            ]
+          );
         } else {
           console.error("❌ ToS acceptance processing failed:", result.error);
           Alert.alert(
             "Error",
             "Error al procesar la aceptación de términos: " + result.error,
-            [{ text: "OK", onPress: () => router.back() }]
+            [
+              {
+                text: "OK",
+                onPress: () => router.replace('/(private)/profile')
+              }
+            ]
           );
         }
       } catch (error) {
@@ -132,7 +73,7 @@ export default function BridgeToSCallbackScreen() {
         Alert.alert(
           "Error",
           "Error inesperado al procesar la aceptación de términos.",
-          [{ text: "OK", onPress: () => router.back() }]
+          [{ text: "OK", onPress: () => router.replace('/(private)/profile') }]
         );
       } finally {
         setIsProcessing(false);
@@ -140,10 +81,10 @@ export default function BridgeToSCallbackScreen() {
     };
 
     processToSCallback();
-  }, [params]);
+  }, [params, handleToSCallback, router]);
 
   const handleContinue = () => {
-    router.back();
+    router.replace('/(private)/profile');
   };
 
   return (

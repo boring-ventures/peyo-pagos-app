@@ -7,10 +7,10 @@ import { bridgeService } from '../services/bridgeService';
 import { profileService } from '../services/profileService';
 import { walletService } from '../services/walletService';
 import {
-  BridgeCapabilityStatus,
-  BridgeVerificationStatus,
-  BridgeWallet,
-  KycProfileForBridge
+    BridgeCapabilityStatus,
+    BridgeVerificationStatus,
+    BridgeWallet,
+    KycProfileForBridge
 } from '../types/BridgeTypes';
 import { useAuthStore } from './authStore';
 
@@ -44,12 +44,18 @@ interface BridgeState {
 // Bridge Store Actions
 interface BridgeActions {
   // Core workflow
-  initializeBridgeIntegration: (kycProfile: KycProfileForBridge) => Promise<{ success: boolean; error?: string }>;
+  initializeBridgeIntegration: (kycProfile: KycProfileForBridge, retryAttempt?: number) => Promise<{ success: boolean; error?: string }>;
   
   // Terms of Service - Updated for proper production flow
-  generateTosLink: (redirectUri?: string) => Promise<{ url?: string; agreementId?: string; error?: string }>;
+  generateTosLink: () => Promise<{ url?: string; agreementId?: string; error?: string }>;
   acceptTermsOfService: (signedAgreementId: string) => void;
-  showToSForUser: () => Promise<{ success: boolean; url?: string; error?: string }>;
+  showToSForUser: () => Promise<{ 
+    success: boolean; 
+    url?: string; 
+    error?: string; 
+    signedAgreementId?: string;
+    dismissed?: boolean;
+  }>;
   handleTosAcceptance: (signedAgreementId: string) => Promise<{ success: boolean; error?: string }>;
   cancelTosFlow: () => void;
   
@@ -66,6 +72,7 @@ interface BridgeActions {
   setError: (error: string | null) => void;
   clearError: () => void;
   resetBridgeIntegration: () => void;
+  clearRateLimit: () => Promise<void>;
   
   // Retry mechanism
   retryFailedOperation: (operation: () => Promise<any>) => Promise<{ success: boolean; error?: string }>;
@@ -114,12 +121,14 @@ export const useBridgeStore = create<BridgeStore>()(
 
       /**
        * Main integration workflow - Start Bridge integration for KYC approved user
-       * Updated to handle ToS properly for production vs sandbox
+       * Updated to handle ToS properly for production vs sandbox with enhanced error handling
        */
-      initializeBridgeIntegration: async (kycProfile: KycProfileForBridge) => {
+      initializeBridgeIntegration: async (kycProfile: KycProfileForBridge, retryAttempt: number = 0) => {
+        const maxRetries = 3;
+        const retryDelay = Math.pow(2, retryAttempt) * 1000;
         const state = get();
         
-        console.log('🔍 Bridge integration state check:', {
+        console.log(`🔍 Bridge integration state check (attempt ${retryAttempt + 1}/${maxRetries + 1}):`, {
           isInitialized: state.isInitialized,
           bridgeCustomerId: state.bridgeCustomerId,
           hasAcceptedTermsOfService: state.hasAcceptedTermsOfService,
@@ -139,12 +148,12 @@ export const useBridgeStore = create<BridgeStore>()(
           const lastAttempt = await AsyncStorage.getItem(lastInitAttemptKey);
           const now = Date.now();
           
-          if (lastAttempt) {
+          if (lastAttempt && retryAttempt === 0) { // Only check on first attempt
             const lastAttemptTime = parseInt(lastAttempt);
             const timeDiff = now - lastAttemptTime;
             
-            // If last attempt was less than 30 seconds ago, skip
-            if (timeDiff < 30000) {
+            // If last attempt was less than 10 seconds ago, skip (reduced from 30s)
+            if (timeDiff < 10000) {
               console.log(`⏭️ Recent initialization attempt detected (${Math.round(timeDiff/1000)}s ago), skipping...`);
               return { success: false, error: 'Recent initialization attempt, please wait' };
             }
@@ -158,12 +167,12 @@ export const useBridgeStore = create<BridgeStore>()(
         }
 
         // Check if integration is already in progress
-        if (state.isLoading) {
+        if (state.isLoading && retryAttempt === 0) {
           console.log('🔄 Bridge integration already in progress, skipping duplicate call');
           return { success: false, error: 'Bridge integration already in progress' };
         }
 
-        console.log('🌉 Starting Bridge integration for:', kycProfile.email);
+        console.log(`🌉 Starting Bridge integration for: ${kycProfile.email} (attempt ${retryAttempt + 1})`);
         set({ isLoading: true, integrationError: null });
 
         try {
@@ -204,13 +213,25 @@ export const useBridgeStore = create<BridgeStore>()(
 
             console.log('✅ Bridge customer created successfully:', customerResponse.customerId);
 
-            // Create wallet
+            // Create wallet with retry logic
             console.log('🧪 Step 4: Creating default wallet...');
-            const walletResponse = await get().createDefaultWallet();
-            console.log('🔍 Wallet creation response:', walletResponse);
+            let walletResponse;
+            let walletRetryAttempt = 0;
+            const maxWalletRetries = 2;
+
+            do {
+              walletResponse = await get().createDefaultWallet();
+              console.log(`🔍 Wallet creation response (attempt ${walletRetryAttempt + 1}):`, walletResponse);
+              
+              if (!walletResponse.success && walletRetryAttempt < maxWalletRetries) {
+                console.warn(`⚠️ Wallet creation failed, retrying in 2s...`);
+                walletRetryAttempt++;
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+            } while (!walletResponse.success && walletRetryAttempt <= maxWalletRetries);
             
             if (!walletResponse.success) {
-              console.warn('⚠️ Bridge wallet creation failed, but customer created successfully:', walletResponse.error);
+              console.warn('⚠️ Bridge wallet creation failed after retries, but customer created successfully:', walletResponse.error);
             } else {
               console.log('✅ Bridge wallet created successfully');
             }
@@ -247,27 +268,40 @@ export const useBridgeStore = create<BridgeStore>()(
 
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error('💥 Bridge integration failed:', errorMessage);
+          console.error(`💥 Bridge integration failed (attempt ${retryAttempt + 1}):`, errorMessage);
           
-          set({ 
-            integrationError: errorMessage,
-            isLoading: false,
-            isPendingTosAcceptance: false
-          });
+          // Check if we should retry
+          if (retryAttempt < maxRetries) {
+            console.log(`🔄 Retrying Bridge integration in ${retryDelay}ms... (attempt ${retryAttempt + 1}/${maxRetries})`);
+            
+            set({ isLoading: false });
+            
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            
+            // Recursive retry
+            return get().initializeBridgeIntegration(kycProfile, retryAttempt + 1);
+          } else {
+            set({ 
+              integrationError: errorMessage,
+              isLoading: false,
+              isPendingTosAcceptance: false
+            });
 
-          return { 
-            success: false, 
-            error: errorMessage 
-          };
+            return { 
+              success: false, 
+              error: errorMessage 
+            };
+          }
         }
       },
 
       /**
        * Generate Terms of Service acceptance link (updated to support redirectUri)
        */
-      generateTosLink: async (redirectUri?: string) => {
+      generateTosLink: async () => {
         try {
-          const response = await bridgeService.generateTosLink(redirectUri);
+          const response = await bridgeService.generateTosLink();
           
           if (!response.success || !response.data) {
             return { error: response.error || 'ToS generation failed' };
@@ -286,21 +320,20 @@ export const useBridgeStore = create<BridgeStore>()(
       },
 
       /**
-       * Show ToS to user (for production flow) - Auto opens browser
+       * Show ToS to user (for production flow) - Uses WebView instead of browser
        */
-      showToSForUser: async () => {
+      showToSForUser: async (): Promise<{
+        success: boolean;
+        url?: string;
+        error?: string;
+        signedAgreementId?: string;
+        dismissed?: boolean;
+      }> => {
         try {
           console.log('🔐 Starting ToS flow for user...');
           
-          // Use conditional redirect URI based on environment
-          const isSandbox = process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE === 'true';
-          const redirectUri = isSandbox 
-            ? 'peyopagos://bridge-tos-callback'  // Sandbox: deep link
-            : 'https://app.peyopagos.com/bridge-tos-callback'; // Production: HTTPS URL
-          
-          console.log(`🔄 Using redirect URI (${isSandbox ? 'SANDBOX' : 'PRODUCTION'}):`, redirectUri);
-          
-          const response = await bridgeService.generateTosLink(redirectUri);
+          // Let bridgeService handle redirect URI generation using expo-auth-session
+          const response = await bridgeService.generateTosLink();
           
           if (!response.success || !response.data) {
             console.error('❌ Failed to generate ToS link:', response.error);
@@ -310,40 +343,41 @@ export const useBridgeStore = create<BridgeStore>()(
             };
           }
 
-          console.log('✅ ToS link generated, opening browser...');
+          console.log('✅ ToS link generated, preparing WebView...');
           console.log('🔗 ToS URL:', response.data.url);
 
           // Store ToS details for tracking
           set({
             tosUrl: response.data.url,
-            tosAgreementId: response.data.id || null, // Bridge ToS response may not include ID initially
+            tosAgreementId: response.data.id || null,
             isPendingTosAcceptance: true
           });
 
-          // AUTO-OPEN the ToS URL in browser
-          try {
-            const { openBrowserAsync } = await import('expo-web-browser');
-            
-            console.log('🌐 Opening ToS URL in browser...');
-            const browserResult = await openBrowserAsync(response.data.url, {
-              showTitle: true,
-            });
-            
-            console.log('🔍 Browser result:', browserResult);
-            
-            // The browser will either:
-            // 1. User accepts ToS -> redirects to our deep link -> handleTosAcceptance called
-            // 2. User cancels -> we stay in pending state
-            // 3. User closes browser -> we stay in pending state
-            
-          } catch (browserError) {
-            console.error('⚠️ Error opening browser:', browserError);
-            // Don't fail the whole flow, user can manually open the URL
-          }
+          // Generate redirect URI using expo-auth-session
+          const { makeRedirectUri } = await import('expo-auth-session');
+          const Constants = await import('expo-constants');
+          
+          // Log the scheme from app.json/app.config.js
+          console.log('📱 App scheme from app.json:', Constants.default?.expoConfig?.scheme);
+          console.log('📱 App name from app.json:', Constants.default?.expoConfig?.name);
+          console.log('📱 App slug from app.json:', Constants.default?.expoConfig?.slug);
+          console.log('📱 Full expo config object:', Constants.default?.expoConfig);
+          
+          const redirectUri = makeRedirectUri({
+            scheme: 'peyopagos',
+          });
+          
+          console.log('🔗 Generated redirect URI:', redirectUri);
 
+          // Use the original URL without redirect_uri since we're intercepting the API
+          console.log('🔗 ToS URL for WebView (without redirect_uri):', response.data.url);
+
+          // Return success with URL for WebView to handle
+          // The actual WebView handling will be done in the component
           return {
             success: true,
-            url: response.data.url
+            url: response.data.url, // Use original URL, no redirect_uri needed
+            dismissed: false
           };
 
         } catch (error) {
@@ -617,48 +651,87 @@ export const useBridgeStore = create<BridgeStore>()(
       },
 
       /**
-       * Sync customer status from Bridge
+       * Sync customer status from Bridge API
+       * Based on Bridge API documentation: GET /customers/{id}
        */
       syncCustomerStatus: async () => {
-        const { bridgeCustomerId } = get();
-        
-        if (!bridgeCustomerId) {
-          return { success: false, error: 'No Bridge customer ID' };
-        }
-
         try {
-          set({ isLoading: true });
+          const state = get();
           
-          const statusResponse = await bridgeService.syncCustomerStatus(bridgeCustomerId);
-          
-          if (statusResponse.error) {
-            set({ 
-              integrationError: statusResponse.error,
-              isLoading: false 
-            });
-            return { success: false, error: statusResponse.error };
+          if (!state.bridgeCustomerId) {
+            return { 
+              success: false, 
+              error: 'No customer ID available for sync' 
+            };
           }
 
-          // Update status - cast verificationStatus to BridgeVerificationStatus
-          const bridgeVerificationStatus = statusResponse.verificationStatus as BridgeVerificationStatus;
+          console.log('🔄 Syncing customer status from Bridge:', state.bridgeCustomerId);
+          set({ isLoading: true, integrationError: null });
+
+          const response = await bridgeService.getCustomer(state.bridgeCustomerId);
           
+          if (!response.success || !response.data) {
+            console.error('❌ Customer sync failed:', response.error);
+            set({ 
+              isLoading: false, 
+              integrationError: response.error || 'Failed to sync customer status' 
+            });
+            return { 
+              success: false, 
+              error: response.error || 'Failed to sync customer status' 
+            };
+          }
+
+          const customerData = response.data;
+          console.log('✅ Customer sync successful:', {
+            verification_status: customerData.verification_status,
+            requirements_due: customerData.requirements_due,
+            payin_crypto: customerData.payin_crypto,
+            payout_crypto: customerData.payout_crypto,
+            endorsements: customerData.endorsements?.length || 0
+          });
+
+          // Update store with latest customer data
           set({
-            bridgeVerificationStatus,
-            requirementsDue: statusResponse.requirementsDue,
+            bridgeVerificationStatus: customerData.verification_status,
+            requirementsDue: customerData.requirements_due || [],
+            payinCrypto: customerData.payin_crypto,
+            payoutCrypto: customerData.payout_crypto,
             lastSyncAt: new Date().toISOString(),
             isLoading: false,
             integrationError: null
           });
 
+          // If customer is active and has no wallets, try to create default wallet
+          if (customerData.verification_status === 'active' && state.wallets.length === 0) {
+            console.log('🔄 Customer is active, attempting to create default wallet...');
+            try {
+              const walletResult = await get().createDefaultWallet();
+              if (walletResult.success) {
+                console.log('✅ Default wallet created during sync');
+              } else {
+                console.warn('⚠️ Default wallet creation failed during sync:', walletResult.error);
+              }
+            } catch (walletError) {
+              console.warn('⚠️ Error creating default wallet during sync:', walletError);
+            }
+          }
+
           return { success: true };
 
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Sync failed';
+          console.error('💥 Error syncing customer status:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          
           set({ 
-            integrationError: errorMessage,
-            isLoading: false 
+            isLoading: false, 
+            integrationError: errorMessage 
           });
-          return { success: false, error: errorMessage };
+          
+          return { 
+            success: false, 
+            error: errorMessage 
+          };
         }
       },
 
@@ -803,6 +876,19 @@ export const useBridgeStore = create<BridgeStore>()(
       resetBridgeIntegration: () => {
         set(initialState);
         console.log('🔄 Bridge integration reset');
+      },
+
+      clearRateLimit: async () => {
+        try {
+          const { user } = useAuthStore.getState();
+          if (user?.id) {
+            const lastInitAttemptKey = `bridge_init_attempt_${user.id}`;
+            await AsyncStorage.removeItem(lastInitAttemptKey);
+            console.log('🧹 Rate limit cleared for user:', user.id);
+          }
+        } catch (error) {
+          console.warn('⚠️ Error clearing rate limit:', error);
+        }
       },
 
       updateBridgeData: (data: Partial<BridgeState>) => {

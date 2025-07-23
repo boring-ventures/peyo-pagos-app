@@ -19,6 +19,7 @@ export default function BridgeDebugScreen() {
   const { profile, user, isAuthenticated } = useAuthStore();
   const [isLoadingBridgeAction, setIsLoadingBridgeAction] = useState(false);
   const [bridgeProfile, setBridgeProfile] = useState<any>(null);
+  const [environmentInfo, setEnvironmentInfo] = useState<any>(null);
 
   const {
     bridgeCustomerId,
@@ -36,25 +37,41 @@ export default function BridgeDebugScreen() {
     resetBridgeIntegration,
     clearError,
     initializeBridgeIntegration,
+    showToSForUser,
+    isPendingTosAcceptance,
+    tosUrl
   } = useBridgeStore();
 
-  // Load Bridge profile data on mount
+  // Check environment mode
+  const isSandboxMode = process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE === 'true';
+
+  // Load Bridge profile data and environment info on mount
   useEffect(() => {
-    const loadBridgeProfile = async () => {
+    const loadData = async () => {
       if (user?.id) {
         try {
           console.log('🌉 Loading Bridge profile data...');
           const profileData = await profileService.getProfileForBridge(user.id);
           setBridgeProfile(profileData);
           console.log('✅ Bridge profile loaded:', !!profileData);
+
+          // Load environment info
+          setEnvironmentInfo({
+            sandboxMode: isSandboxMode,
+            apiUrl: process.env.EXPO_PUBLIC_BRIDGE_API_URL,
+            hasApiKey: !!process.env.EXPO_PUBLIC_BRIDGE_API_KEY,
+            appUrl: process.env.EXPO_PUBLIC_APP_URL,
+            userId: user.id,
+            userEmail: user.email
+          });
         } catch (error) {
           console.error('❌ Error loading Bridge profile:', error);
         }
       }
     };
 
-    loadBridgeProfile();
-  }, [user?.id]);
+    loadData();
+  }, [user?.id, isSandboxMode]);
 
   // Bridge action handlers
   const handleBridgeAction = async (action: () => Promise<any>, actionName: string) => {
@@ -77,14 +94,20 @@ export default function BridgeDebugScreen() {
   };
 
   const handleGenerateToS = async () => {
-    await handleBridgeAction(async () => {
-      const result = await generateTosLink();
-      if (result.agreementId) {
-        acceptTermsOfService(result.agreementId);
-        return { success: true };
-      }
-      return { success: false, error: result.error };
-    }, 'Generar ToS');
+    if (isSandboxMode) {
+      await handleBridgeAction(async () => {
+        const result = await generateTosLink();
+        if (result.agreementId) {
+          acceptTermsOfService(result.agreementId);
+          return { success: true };
+        }
+        return { success: false, error: result.error };
+      }, 'Generar ToS (Sandbox)');
+    } else {
+      await handleBridgeAction(async () => {
+        return await showToSForUser();
+      }, 'Mostrar ToS (Producción)');
+    }
   };
 
   const handleCreateCustomer = async () => {
@@ -96,7 +119,7 @@ export default function BridgeDebugScreen() {
     await handleBridgeAction(async () => {
       console.log('🔄 Converting database profile to Bridge format for customer creation...');
       
-      const convertedProfile = kycService.convertDatabaseProfileToBridge(bridgeProfile);
+      const convertedProfile = await kycService.convertDatabaseProfileToBridge(bridgeProfile);
       
       if (!convertedProfile) {
         throw new Error('No se pudo convertir el perfil para Bridge');
@@ -137,7 +160,7 @@ export default function BridgeDebugScreen() {
 
     Alert.alert(
       'Integración Completa',
-      '¿Desea ejecutar todo el proceso de integración Bridge automáticamente?',
+      `¿Desea ejecutar todo el proceso de integración Bridge automáticamente? (${isSandboxMode ? 'Sandbox' : 'Producción'})`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -180,6 +203,9 @@ export default function BridgeDebugScreen() {
   const handleDebugInfo = async () => {
     console.log('🐛 ===== DEBUG INFO START =====');
     
+    // Environment Info
+    console.log('🔍 Environment Info:', environmentInfo);
+    
     // Auth Store
     console.log('🔍 Auth Store Complete:', {
       isAuthenticated,
@@ -198,6 +224,19 @@ export default function BridgeDebugScreen() {
         status: profile.status,
         role: profile.role,
       } : null,
+    });
+
+    // Bridge Store State
+    console.log('🔍 Bridge Store State:', {
+      bridgeCustomerId,
+      bridgeVerificationStatus,
+      hasAcceptedTermsOfService,
+      isPendingTosAcceptance,
+      tosUrl,
+      wallets: wallets.length,
+      isInitialized,
+      integrationError,
+      isLoading: bridgeLoading
     });
 
     // AsyncStorage Deep Dive
@@ -285,8 +324,58 @@ export default function BridgeDebugScreen() {
             Bridge Debug Panel
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            Panel de testing y depuración Bridge
+            Panel de testing y depuración Bridge ({isSandboxMode ? 'Sandbox' : 'Producción'})
           </ThemedText>
+        </View>
+
+        {/* Environment Info */}
+        <View style={styles.sectionContainer}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Configuración del Entorno
+          </ThemedText>
+          
+          {environmentInfo && (
+            <View style={styles.environmentContainer}>
+              <View style={styles.infoRow}>
+                <ThemedText style={styles.infoLabel}>Modo:</ThemedText>
+                <ThemedText style={[styles.infoValue, { 
+                  color: isSandboxMode ? '#FF9800' : '#4CAF50' 
+                }]}>
+                  {isSandboxMode ? 'Sandbox' : 'Producción'}
+                </ThemedText>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <ThemedText style={styles.infoLabel}>API URL:</ThemedText>
+                <ThemedText style={styles.infoValue}>
+                  {environmentInfo.apiUrl || 'No configurado'}
+                </ThemedText>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <ThemedText style={styles.infoLabel}>API Key:</ThemedText>
+                <ThemedText style={[styles.infoValue, { 
+                  color: environmentInfo.hasApiKey ? '#4CAF50' : '#FF6B6B' 
+                }]}>
+                  {environmentInfo.hasApiKey ? 'Configurado' : 'No configurado'}
+                </ThemedText>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <ThemedText style={styles.infoLabel}>App URL:</ThemedText>
+                <ThemedText style={styles.infoValue}>
+                  {environmentInfo.appUrl || 'No configurado'}
+                </ThemedText>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <ThemedText style={styles.infoLabel}>User ID:</ThemedText>
+                <ThemedText style={styles.infoValue}>
+                  {environmentInfo.userId?.substring(0, 8)}...
+                </ThemedText>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Bridge Integration Status */}
@@ -344,7 +433,7 @@ export default function BridgeDebugScreen() {
             <ThemedText style={styles.stepTitle}>Acciones paso a paso:</ThemedText>
             
             <ThemedButton
-              title={`1. ${hasAcceptedTermsOfService ? '✅' : '⏳'} Generar/Aceptar ToS`}
+              title={`1. ${hasAcceptedTermsOfService ? '✅' : '⏳'} ${isSandboxMode ? 'Generar/Aceptar ToS (Sandbox)' : 'Mostrar ToS (Producción)'}`}
               onPress={handleGenerateToS}
               disabled={isLoadingBridgeAction || hasAcceptedTermsOfService}
               style={hasAcceptedTermsOfService ? styles.completedButton : styles.pendingButton}
@@ -401,6 +490,15 @@ export default function BridgeDebugScreen() {
                 <ThemedText style={styles.infoValue}>{bridgeVerificationStatus}</ThemedText>
               </View>
             )}
+            
+            <View style={styles.infoRow}>
+              <ThemedText style={styles.infoLabel}>ToS Aceptado:</ThemedText>
+              <ThemedText style={[styles.infoValue, { 
+                color: hasAcceptedTermsOfService ? '#4CAF50' : '#FF9800' 
+              }]}>
+                {hasAcceptedTermsOfService ? 'Sí' : 'No'}
+              </ThemedText>
+            </View>
             
             {wallets.length > 0 && (
               <View style={styles.infoRow}>
@@ -521,5 +619,11 @@ const styles = StyleSheet.create({
     flex: 2,
     textAlign: 'right',
     opacity: 0.8,
+  },
+  environmentContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
   },
 }); 

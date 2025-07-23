@@ -17,7 +17,8 @@
               "login": "login",
               "register": "register", 
               "forgot-password": "forgot-password",
-              "otp-verification": "otp-verification"
+              "otp-verification": "otp-verification",
+              "bridge-tos-callback": "bridge-tos-callback"
             }
           },
           "(private)": {
@@ -34,8 +35,7 @@
               "personal-info": "kyc-personal", 
               "kyc-success": "kyc-success"
             }
-          },
-          "bridge-tos-callback": "bridge-tos-callback"
+          }
         }
       }
     },

@@ -35,7 +35,7 @@ export const profileService = {
   /**
    * Create Profile and KYCProfile in database after KYC completion
    */
-  createProfileAfterKyc: async (): Promise<{ success: boolean; error?: string }> => {
+  createProfileAfterKyc: async (): Promise<{ success: boolean; error?: string; profileExists?: boolean }> => {
     try {
       console.log('📋 Creating profile and KYC profile after KYC completion...');
       
@@ -45,6 +45,14 @@ export const profileService = {
       
       if (!user) {
         return { success: false, error: 'No user found' };
+      }
+
+      // Check if profile already exists
+      const { exists: profileExists } = await profileService.checkProfileExists(user.id);
+      
+      if (profileExists) {
+        console.log('✅ Profile already exists, skipping creation');
+        return { success: true, profileExists: true };
       }
 
       // Validate required data (allow placeholder documents for automated flow)
@@ -290,6 +298,37 @@ export const profileService = {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('💥 Error creating profile after KYC:', errorMessage);
       return { success: false, error: errorMessage };
+    }
+  },
+
+  /**
+   * Check if profile already exists for user
+   */
+  checkProfileExists: async (userId: string): Promise<{ exists: boolean; profile?: any }> => {
+    try {
+      console.log('🔍 Checking if profile exists for user:', userId);
+      
+      const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email, first_name, last_name, status')
+        .eq('userId', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('❌ Error checking profile existence:', error);
+        return { exists: false };
+      }
+
+      if (!profile) {
+        console.log('🔍 No profile found for user');
+        return { exists: false };
+      }
+
+      console.log('✅ Profile exists:', profile.id);
+      return { exists: true, profile };
+    } catch (error) {
+      console.error('💥 Error in checkProfileExists:', error);
+      return { exists: false };
     }
   },
 

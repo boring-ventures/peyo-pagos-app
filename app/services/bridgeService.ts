@@ -1,3 +1,4 @@
+import * as AuthSession from 'expo-auth-session';
 import Constants from "expo-constants";
 import {
   BridgeApiResponse,
@@ -5,6 +6,7 @@ import {
   BridgeCustomer,
   BridgeCustomerRequest,
   BridgeDocumentType,
+  BridgeGetCustomerResponse,
   BridgeTosLinkResponse,
   BridgeTosResponse,
   KycProfileForBridge
@@ -48,6 +50,35 @@ if (!BRIDGE_API_KEY) {
  */
 const generateIdempotencyKey = (): string => {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+/**
+ * Generate redirect URI using expo-auth-session for consistent OAuth flow
+ * Based on expo-auth-session documentation: https://docs.expo.dev/versions/latest/sdk/auth-session/#authsessionmakeredirecturioptions
+ */
+const generateRedirectUri = (): string => {
+  try {
+    // Use expo-auth-session to generate a consistent redirect URI
+    const redirectUri = AuthSession.makeRedirectUri({
+      scheme: 'peyopagos',
+      // For production, we can also use a web URL
+      // useProxy: false, // Set to false for production web URLs
+    });
+    
+    console.log('🔗 Generated redirect URI using expo-auth-session:', redirectUri);
+    return redirectUri;
+  } catch (error) {
+    console.error('❌ Error generating redirect URI:', error);
+    
+    // Fallback to manual generation
+    const isSandbox = process.env.EXPO_PUBLIC_BRIDGE_SANDBOX_MODE === 'true';
+    const fallbackUri = isSandbox 
+      ? 'peyopagos://bridge-tos-callback'
+      : 'https://app.peyopagos.com/bridge-tos-callback';
+    
+    console.log('🔄 Using fallback redirect URI:', fallbackUri);
+    return fallbackUri;
+  }
 };
 
 /**
@@ -345,7 +376,7 @@ export const bridgeService = {
    * Generate Terms of Service acceptance link
    * NOTE: ToS is not available in sandbox mode, so we return a dummy agreement
    */
-  generateTosLink: async (redirectUri?: string): Promise<BridgeTosLinkResponse> => {
+  generateTosLink: async (): Promise<BridgeTosLinkResponse> => {
     try {
       console.log(`🌉 Starting ToS generation - Mode: ${BRIDGE_SANDBOX_MODE ? 'SANDBOX' : 'PRODUCTION'}`);
       
@@ -356,14 +387,6 @@ export const bridgeService = {
           return {
             success: false,
             error: "ToS Error: Invalid API key for production mode",
-          };
-        }
-        
-        if (!redirectUri || !redirectUri.startsWith('https://')) {
-          console.error("❌ Production mode requires HTTPS redirect_uri");
-          return {
-            success: false,
-            error: "ToS Error: Production mode requires HTTPS redirect_uri",
           };
         }
       }
@@ -377,7 +400,7 @@ export const bridgeService = {
           success: true,
           data: {
             id: dummyAgreementId,
-            url: `https://sandbox-bridge.xyz/tos/${dummyAgreementId}${redirectUri ? `?redirect_uri=${encodeURIComponent(redirectUri)}` : ''}`,
+            url: `https://sandbox-bridge.xyz/tos/${dummyAgreementId}`,
             expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
           },
         };
@@ -386,22 +409,19 @@ export const bridgeService = {
       // Production mode: Use real ToS endpoint
       console.log("🔐 Production mode: Generating real Bridge ToS link");
       
-      // Use correct endpoint without query parameters
+      // Generate redirect URI for logging purposes (will be added to ToS URL by the hook)
+      const finalRedirectUri = generateRedirectUri();
+      console.log(`🔄 Generated redirect_uri: ${finalRedirectUri}`);
+      
+      // Call Bridge API without redirect_uri in query parameter
       const endpoint = "/customers/tos_links";
       console.log(`🌉 Making request to: ${BRIDGE_API_URL}${endpoint}`);
-      
-      // Build request body with redirect_uri (per Bridge docs)
-      const requestBody: any = {};
-      if (redirectUri) {
-        requestBody.redirect_uri = redirectUri;
-        console.log(`🔄 Adding redirect_uri to request body: ${redirectUri}`);
-      }
 
       const response = await bridgeRequest<BridgeTosResponse>(
         endpoint,
         {
           method: "POST",
-          body: JSON.stringify(requestBody),
+          // No body needed - Bridge returns the ToS URL
         }
       );
 
@@ -411,7 +431,7 @@ export const bridgeService = {
           code: response.error.code,
           message: response.error.message,
           endpoint: `${BRIDGE_API_URL}${endpoint}`,
-          requestBody: requestBody,
+          redirectUri: finalRedirectUri,
           sandboxMode: BRIDGE_SANDBOX_MODE
         });
         return {
@@ -441,6 +461,61 @@ export const bridgeService = {
       return {
         success: false,
         error: `ToS Generation Failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
+    }
+  },
+
+  /**
+   * Get Bridge customer details and sync status
+   * Based on Bridge API documentation: GET /customers/{id}
+   */
+  getCustomer: async (customerId: string): Promise<BridgeGetCustomerResponse> => {
+    console.log("🌉 Getting Bridge customer details:", customerId);
+
+    try {
+      const response = await bridgeRequest<BridgeCustomer>(`/customers/${customerId}`, {
+        method: "GET",
+      });
+
+      if (response.error) {
+        console.error("❌ Bridge Get Customer API Error:", response.error);
+        return {
+          success: false,
+          error: `Get Customer Error: ${response.error.message}`,
+        };
+      }
+
+      if (!response.data) {
+        console.error("❌ Bridge Get Customer API returned no data");
+        return {
+          success: false,
+          error: "Get Customer Error: No data returned from Bridge API",
+        };
+      }
+
+      console.log("✅ Bridge customer details retrieved successfully");
+      console.log("🔍 Customer details:", {
+        id: response.data.id,
+        verification_status: response.data.verification_status,
+        requirements_due: response.data.requirements_due,
+        payin_crypto: response.data.payin_crypto,
+        payout_crypto: response.data.payout_crypto,
+        endorsements: response.data.endorsements?.length || 0,
+        created_at: response.data.created_at,
+        updated_at: response.data.updated_at
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error("💥 Error getting Bridge customer:", error);
+      return {
+        success: false,
+        error: `Get Customer Failed: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       };
@@ -548,34 +623,6 @@ export const bridgeService = {
       return {
         success: false,
         error: `Customer Creation Failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      };
-    }
-  },
-
-  /**
-   * Get Bridge customer by ID
-   */
-  getCustomer: async (customerId: string) => {
-    try {
-      const response = await bridgeRequest<BridgeCustomer>(`/customers/${customerId}`);
-
-      if (response.error) {
-        return {
-          success: false,
-          error: `Get Customer Error: ${response.error.message}`,
-        };
-      }
-
-      return {
-        success: true,
-        data: response.data,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Get Customer Failed: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       };

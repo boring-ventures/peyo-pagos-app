@@ -327,14 +327,17 @@ const advanceToNextStep = async (currentStep: KycStep): Promise<{ success: boole
 };
 
 /**
- * Initialize Bridge integration after KYC completion
+ * Initialize Bridge integration after KYC completion with retry logic
  */
-const initializeBridgeIntegration = async (): Promise<{
+const initializeBridgeIntegration = async (retryAttempt: number = 0): Promise<{
   success: boolean;
   error?: string;
 }> => {
+  const maxRetries = 3;
+  const retryDelay = Math.pow(2, retryAttempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+
   try {
-    console.log("🌉 Initializing Bridge integration after KYC completion...");
+    console.log(`🌉 Initializing Bridge integration (attempt ${retryAttempt + 1}/${maxRetries + 1})...`);
 
     const { user } = useAuthStore.getState();
     if (!user) {
@@ -385,108 +388,195 @@ const initializeBridgeIntegration = async (): Promise<{
 
     // Start Bridge integration with clean state
     console.log("🌉 Starting Bridge integration with clean state...");
-    const { initializeBridgeIntegration } = useBridgeStore.getState();
-    const result = await initializeBridgeIntegration(bridgeProfile);
+    const { initializeBridgeIntegration: bridgeStoreInitializer } = useBridgeStore.getState();
+    const result = await bridgeStoreInitializer(bridgeProfile);
 
     if (result.success) {
       console.log("✅ Bridge integration completed successfully");
+      return result;
     } else {
       console.error("❌ Bridge integration failed:", result.error);
+      
+      // Check if we should retry
+      if (retryAttempt < maxRetries) {
+        console.log(`🔄 Retrying Bridge integration in ${retryDelay}ms... (attempt ${retryAttempt + 1}/${maxRetries})`);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        
+        // Recursive retry
+        return initializeBridgeIntegration(retryAttempt + 1);
+      } else {
+        console.error("💥 Bridge integration failed after all retry attempts");
+        return result;
+      }
     }
-
-    return result;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("💥 Error initializing Bridge integration:", errorMessage);
-    return {
-      success: false,
-      error: errorMessage,
-    };
-  }
-};
-
-const submitKycData = async () => {
-  const { completeVerification } = useKycStore.getState();
-
-  console.log("📋 Submitting KYC Data and creating profiles...");
-
-  // Complete KYC verification first
-  await completeVerification();
-
-  const { verificationStatus } = useKycStore.getState();
-  console.log("KYC submission finished. Status:", verificationStatus);
-
-  // If KYC completed successfully, create profiles and then initialize Bridge
-  if (verificationStatus === "completed") {
-    console.log("📋 KYC completed - creating profiles in database...");
-
-    // Create Profile and KYCProfile in database
-    const profileResult = await profileService.createProfileAfterKyc();
     
-    if (!profileResult.success) {
-      console.error("❌ Profile creation failed:", profileResult.error);
-      return { success: false, error: profileResult.error };
-    }
-
-    console.log("✅ Profiles created successfully in database");
-
-    // Update auth store with new profile data
-    const { user } = useAuthStore.getState();
-    if (user) {
-      console.log("🔄 Refreshing auth store with new profile data...");
-      const { initialize } = useAuthStore.getState();
-      await initialize();
-    }
-
-    console.log("🌉 KYC and profile creation completed - checking Bridge configuration...");
-
-    // Only initialize Bridge if API key is configured
-    if (process.env.EXPO_PUBLIC_BRIDGE_API_KEY) {
-      console.log("🌉 Bridge API key found, starting integration...");
-
-      // Initialize Bridge integration in background (don't block UI)
-      initializeBridgeIntegration()
-        .then((result) => {
-          console.log("initializeBridgeIntegration result", result);
-          if (!result.success) {
-            console.warn(
-              "⚠️ Bridge integration failed, but KYC was successful:",
-              result.error
-            );
-            // Could show a retry button in UI or attempt retry later
-          }
-        })
-        .catch((error) => {
-          console.error("💥 Bridge integration error:", error);
-        });
+    // Check if we should retry
+    if (retryAttempt < maxRetries) {
+      console.log(`🔄 Retrying Bridge integration after error in ${retryDelay}ms... (attempt ${retryAttempt + 1}/${maxRetries})`);
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      
+      // Recursive retry
+      return initializeBridgeIntegration(retryAttempt + 1);
     } else {
-      console.log(
-        "⚠️ Bridge API key not configured, skipping Bridge integration"
-      );
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
   }
-
-  return { success: verificationStatus === "completed" };
 };
 
 /**
- * Retry Bridge integration for already completed KYC
+ * Enhanced submitKycData with robust error handling and recovery
  */
-const retryBridgeIntegration = async (): Promise<{
+const submitKycData = async (retryAttempt: number = 0) => {
+  const maxRetries = 2;
+  const retryDelay = Math.pow(2, retryAttempt) * 1000;
+
+  try {
+    console.log(`📋 Submitting KYC Data (attempt ${retryAttempt + 1}/${maxRetries + 1})...`);
+    
+    const { completeVerification } = useKycStore.getState();
+
+    // Complete KYC verification first
+    await completeVerification();
+
+    const { verificationStatus } = useKycStore.getState();
+    console.log("KYC submission finished. Status:", verificationStatus);
+
+    // If KYC completed successfully, create profiles and then initialize Bridge
+    if (verificationStatus === "completed") {
+      console.log("📋 KYC completed - creating profiles in database...");
+
+      // Create Profile and KYCProfile in database with retry logic
+      let profileResult;
+      let profileRetryAttempt = 0;
+      const maxProfileRetries = 2;
+
+      do {
+        profileResult = await profileService.createProfileAfterKyc();
+        
+        if (!profileResult.success && profileRetryAttempt < maxProfileRetries) {
+          console.warn(`⚠️ Profile creation failed (attempt ${profileRetryAttempt + 1}), retrying...`);
+          profileRetryAttempt++;
+          await new Promise(resolve => setTimeout(resolve, 1000 * profileRetryAttempt));
+        }
+      } while (!profileResult.success && profileRetryAttempt <= maxProfileRetries);
+      
+      if (!profileResult.success) {
+        console.error("❌ Profile creation failed after all retries:", profileResult.error);
+        return { success: false, error: profileResult.error };
+      }
+
+      console.log("✅ Profiles created successfully in database");
+
+      // Update auth store with new profile data
+      const { user } = useAuthStore.getState();
+      if (user) {
+        console.log("🔄 Refreshing auth store with new profile data...");
+        const { initialize } = useAuthStore.getState();
+        
+        try {
+          await initialize();
+        } catch (initError) {
+          console.warn("⚠️ Auth store refresh failed, but continuing with Bridge integration");
+        }
+      }
+
+      console.log("🌉 KYC and profile creation completed - checking Bridge configuration...");
+
+      // Only initialize Bridge if API key is configured
+      if (process.env.EXPO_PUBLIC_BRIDGE_API_KEY) {
+        console.log("🌉 Bridge API key found, starting integration...");
+
+        // Initialize Bridge integration with retry logic
+        const bridgeResult = await initializeBridgeIntegration();
+        
+        if (!bridgeResult.success) {
+          console.warn("⚠️ Bridge integration failed:", bridgeResult.error);
+          
+          // For KYC completion, Bridge failure is not fatal
+          // User can retry Bridge integration later from profile
+          return { 
+            success: true, 
+            warning: `KYC completed but Bridge integration failed: ${bridgeResult.error}`,
+            bridgeError: bridgeResult.error
+          };
+        } else {
+          console.log("✅ Bridge integration completed successfully");
+        }
+      } else {
+        console.log("⚠️ Bridge API key not configured, skipping Bridge integration");
+      }
+    } else {
+      // KYC verification failed
+      if (retryAttempt < maxRetries) {
+        console.log(`🔄 KYC verification failed, retrying in ${retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return submitKycData(retryAttempt + 1);
+      } else {
+        return { 
+          success: false, 
+          error: `KYC verification failed with status: ${verificationStatus}` 
+        };
+      }
+    }
+
+    return { success: verificationStatus === "completed" };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("💥 Error in submitKycData:", errorMessage);
+    
+    // Retry logic for critical errors
+    if (retryAttempt < maxRetries) {
+      console.log(`🔄 Retrying KYC submission in ${retryDelay}ms... (attempt ${retryAttempt + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      return submitKycData(retryAttempt + 1);
+    } else {
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
+    }
+  }
+};
+
+/**
+ * Force retry Bridge integration for existing users
+ */
+const forceRetryBridgeIntegration = async (): Promise<{
   success: boolean;
   error?: string;
 }> => {
-  const { verificationStatus } = useKycStore.getState();
+  try {
+    console.log("🔄 Force retrying Bridge integration...");
+    
+    const { user } = useAuthStore.getState();
+    if (!user) {
+      return { success: false, error: "No user found" };
+    }
 
-  if (verificationStatus !== "completed") {
-    return {
-      success: false,
-      error: "KYC must be completed before Bridge integration",
-    };
+    // Reset Bridge store to clean state
+    const { resetBridgeIntegration } = useBridgeStore.getState();
+    resetBridgeIntegration();
+
+    // Force retry with fresh state
+    return await initializeBridgeIntegration(0);
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("💥 Error in force retry:", errorMessage);
+    return { success: false, error: errorMessage };
   }
-
-  return initializeBridgeIntegration();
 };
 
 /**
@@ -745,5 +835,5 @@ export const kycService = {
   initializeBridgeIntegration,
   convertDatabaseProfileToBridge,
   autoCompleteKYCFlow,
-  retryBridgeIntegration,
+  forceRetryBridgeIntegration,
 };

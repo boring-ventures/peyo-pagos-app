@@ -11,6 +11,7 @@ import { UserAvatar } from '@/app/components/UserAvatar';
 import { CreateWalletModal } from '@/app/components/wallet/CreateWalletModal';
 import { WalletList } from '@/app/components/wallet/WalletList';
 import { WalletSyncButton } from '@/app/components/wallet/WalletSyncButton';
+import { kycService } from '@/app/services/kycService';
 import { walletService } from '@/app/services/walletService';
 import { useBridgeStore } from '@/app/store';
 import { useAuthStore } from '@/app/store/authStore';
@@ -22,7 +23,9 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, isAuthenticated, userTag, loadUserTag } = useAuthStore(); // 🏷️ NEW: Include userTag and loadUserTag
-  const { bridgeCustomerId } = useBridgeStore(); // 💳 NEW: Get Bridge customer ID for wallet operations
+  const { bridgeCustomerId, isInitialized, isLoading: bridgeLoading, integrationError } = useBridgeStore();
+  const [bridgeProgress, setBridgeProgress] = useState<'idle' | 'in_progress' | 'success' | 'error'>("idle");
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingUserTag, setIsLoadingUserTag] = useState(false);
@@ -162,6 +165,27 @@ export default function ProfileScreen() {
   const handleViewWallets = () => {
     // Could navigate to a dedicated wallets screen
     Alert.alert('Bridge Wallets', 'Función de wallets Bridge será implementada próximamente');
+  };
+
+  // Handler para iniciar/reintentar Bridge integration
+  const handleBridgeSetup = async () => {
+    setBridgeProgress('in_progress');
+    setBridgeError(null);
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('No user found');
+      // Forzar retry robusto
+      const result = await kycService.forceRetryBridgeIntegration();
+      if (result.success) {
+        setBridgeProgress('success');
+      } else {
+        setBridgeProgress('error');
+        setBridgeError(result.error || 'Error desconocido');
+      }
+    } catch (err) {
+      setBridgeProgress('error');
+      setBridgeError(err instanceof Error ? err.message : 'Error desconocido');
+    }
   };
 
   return (
@@ -317,6 +341,15 @@ export default function ProfileScreen() {
           </ThemedText>
           
           <BridgeIntegrationCard onViewWallets={handleViewWallets} />
+          
+          {/* Additional Bridge Info */}
+          {bridgeCustomerId && (
+            <View style={styles.bridgeInfoContainer}>
+              <ThemedText style={styles.bridgeInfoText}>
+                💡 Bridge está configurado. Puedes crear wallets y realizar transacciones.
+              </ThemedText>
+            </View>
+          )}
         </View>
 
         {/* Preferences Section */}
@@ -362,6 +395,39 @@ export default function ProfileScreen() {
             loading={isLoading}
             style={styles.logoutButton}
           />
+        </View>
+
+        {/* Bridge Setup Button for existing users without Bridge customer */}
+        {!bridgeCustomerId && !isInitialized && (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ThemedButton
+              title={bridgeProgress === 'in_progress' ? 'Configurando Bridge...' : bridgeProgress === 'error' ? 'Reintentar Bridge' : 'Configurar Bridge'}
+              onPress={handleBridgeSetup}
+              loading={bridgeProgress === 'in_progress' || bridgeLoading}
+              type={bridgeProgress === 'error' ? 'primary' : 'outline'}
+              style={{ marginBottom: 8, width: 220 }}
+              disabled={bridgeProgress === 'in_progress' || bridgeLoading}
+            />
+            {bridgeProgress === 'error' && bridgeError && (
+              <ThemedText style={{ color: '#FF6B6B', textAlign: 'center', marginTop: 4 }}>{bridgeError}</ThemedText>
+            )}
+            {bridgeProgress === 'success' && (
+              <ThemedText style={{ color: '#4ADE80', textAlign: 'center', marginTop: 4 }}>¡Bridge configurado correctamente!</ThemedText>
+            )}
+          </View>
+        )}
+
+        {/* KYC Review Button - Access to document-review screen */}
+        <View style={{ padding: 20, alignItems: 'center' }}>
+          <ThemedButton
+            title="Revisar Proceso KYC"
+            onPress={() => router.push('/(auth)/document-review')}
+            type="outline"
+            style={{ marginBottom: 8, width: 220 }}
+          />
+          <ThemedText style={{ color: '#6B7280', textAlign: 'center', fontSize: 12 }}>
+            Accede al proceso completo de KYC y Bridge
+          </ThemedText>
         </View>
       </ScrollView>
       
@@ -448,5 +514,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
+  },
+  bridgeInfoContainer: {
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#e0f7fa', // Light teal background
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#b2ebf2', // Light teal border
+  },
+  bridgeInfoText: {
+    textAlign: 'center',
+    color: '#00796b', // Dark teal text
+    fontSize: 14,
   },
 }); 
