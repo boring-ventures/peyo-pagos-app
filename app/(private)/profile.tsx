@@ -31,6 +31,15 @@ export default function ProfileScreen() {
     isLoading: bridgeLoading,
     integrationError,
   } = useBridgeStore();
+  
+  // 💳 NEW: Use wallets from authStore instead of local state
+  const { 
+    wallets: userWallets, 
+    walletsLoading, 
+    walletsError, 
+    loadUserWallets: authLoadUserWallets,
+    syncWallets: authSyncWallets 
+  } = useAuthStore();
   const [bridgeProgress, setBridgeProgress] = useState<
     "idle" | "in_progress" | "success" | "error"
   >("idle");
@@ -42,10 +51,7 @@ export default function ProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingUserTag, setIsLoadingUserTag] = useState(false);
 
-  // 💳 NEW: Wallet-related states
-  const [userWallets, setUserWallets] = useState<Wallet[]>([]);
-  const [walletsLoading, setWalletsLoading] = useState(false);
-  const [walletsError, setWalletsError] = useState<string | null>(null);
+  // 💳 NEW: Wallet-related states (now using authStore)
   const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
 
   // If not authenticated, ensure redirect happens (handled by _layout.tsx)
@@ -74,48 +80,15 @@ export default function ProfileScreen() {
     loadUserTagIfNeeded();
   }, [isAuthenticated, user, userTag, loadUserTag]);
 
-  // 💳 NEW: Load user wallets
+  // 💳 NEW: Load user wallets (now using authStore)
   const loadUserWallets = async () => {
     if (!user?.id) return;
 
-    setWalletsLoading(true);
-    setWalletsError(null);
-
-    try {
-      console.log("💳 Loading wallets for user:", user.id);
-
-      if (!bridgeCustomerId) {
-        console.log('⚠️ No Bridge customer ID available');
-        setWalletsError('Bridge customer ID not found. Please complete KYC first.');
-        return;
-      }
-
-      console.log('📋 Using Bridge customer ID:', bridgeCustomerId);
-
-      // Use bridgeCustomerId directly for sync
-      const result = await walletService.getWallets(
-        user.id, // Use user.id as profileId
-        bridgeCustomerId
-      );
-
-      if (result.success && result.data) {
-        setUserWallets(result.data);
-        console.log(`✅ Loaded ${result.data.length} wallets`);
-      } else {
-        setWalletsError(result.error || "Failed to load wallets");
-        console.error("❌ Failed to load wallets:", result.error);
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      setWalletsError(errorMessage);
-      console.error("💥 Error loading wallets:", error);
-    } finally {
-      setWalletsLoading(false);
-    }
+    console.log("💳 Loading wallets for user via authStore:", user.id);
+    await authLoadUserWallets();
   };
 
-  // 💳 NEW: Sync wallets from Bridge
+  // 💳 NEW: Sync wallets from Bridge (now using authStore)
   const syncWallets = async () => {
     if (!user?.id || !bridgeCustomerId) {
       Alert.alert(
@@ -126,54 +99,40 @@ export default function ProfileScreen() {
       return;
     }
 
-    setWalletsLoading(true);
-    setWalletsError(null);
+    console.log("🔄 Syncing wallets from Bridge via authStore...");
+    const result = await authSyncWallets();
 
-    try {
-      console.log("🔄 Syncing wallets from Bridge...");
-      const result = await walletService.syncWallets(user.id, bridgeCustomerId);
-
-      if (result.success) {
-        console.log(
-          `✅ Sync completed: ${result.syncedCount} synced, ${result.createdCount} created`
-        );
-
-        // Reload wallets to show updated data
-        await loadUserWallets();
-
-        Alert.alert(
-          "Wallets Synchronized",
-          `Successfully synced ${result.syncedCount} wallet${
-            result.syncedCount !== 1 ? "s" : ""
-          }${result.createdCount > 0 ? ` (${result.createdCount} new)` : ""}.`,
-          [{ text: "Great!" }]
-        );
-      } else {
-        setWalletsError(result.errors.join(", "));
-        Alert.alert("Sync Failed", result.errors.join(", "), [{ text: "OK" }]);
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      setWalletsError(errorMessage);
-      console.error("💥 Error syncing wallets:", error);
-      Alert.alert("Sync Error", errorMessage, [{ text: "OK" }]);
-    } finally {
-      setWalletsLoading(false);
+    if (result.success) {
+      Alert.alert(
+        "Wallets Synchronized",
+        `Successfully synced ${result.syncedCount} wallet${
+          result.syncedCount !== 1 ? "s" : ""
+        }${result.createdCount > 0 ? ` (${result.createdCount} new)` : ""}.`,
+        [{ text: "Great!" }]
+      );
+    } else {
+      Alert.alert(
+        "Sync Failed", 
+        result.errors.length > 0 ? result.errors.join(", ") : "Unknown error occurred.", 
+        [{ text: "OK" }]
+      );
     }
   };
 
-  // 💳 NEW: Handle wallet creation success
+  // 💳 NEW: Handle wallet creation success (now using authStore)
   const handleWalletCreated = async (wallet: Wallet) => {
     console.log("✅ New wallet created:", wallet.id);
     // Reload wallets to include the new one
-    await loadUserWallets();
+    await authLoadUserWallets();
   };
 
-  // Load wallets when component mounts or user changes
+  // Load wallets when component mounts or user changes (now using authStore)
   useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      loadUserWallets();
+    if (isAuthenticated && user?.id && !walletsLoading) {
+      // Only load if not already loading and we don't have wallets
+      if (!userWallets || userWallets.length === 0) {
+        authLoadUserWallets();
+      }
     }
   }, [isAuthenticated, user?.id]);
 

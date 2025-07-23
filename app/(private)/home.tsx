@@ -7,21 +7,79 @@ import { UserAvatar } from '@/app/components/UserAvatar';
 import { useBridgeAutoRefresh } from '@/app/hooks/useBridgeAutoRefresh';
 import { useRejectedUserCheck } from '@/app/hooks/useRejectedUserCheck';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
+import { bridgeStatusService } from '@/app/services/bridgeStatusService';
 import { useAuthStore } from '@/app/store/authStore';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { profile, user } = useAuthStore();
   const [debugTapCount, setDebugTapCount] = useState(0);
+  const [isCheckingWallets, setIsCheckingWallets] = useState(false);
   
   // Auto-refresh Bridge status on home screen
   useBridgeAutoRefresh();
   
   // Check for rejected users
   useRejectedUserCheck();
+
+  // Verificar estado de Bridge y crear wallets si es necesario
+  useEffect(() => {
+    const checkUserStatusAndWallets = async () => {
+      if (!user) return;
+      
+      try {
+        console.log('🔍 Verificando estado de usuario y wallets...');
+        
+        // 1. Verificar estado de Bridge (esto ya sincroniza las wallets automáticamente)
+        const bridgeResult = await bridgeStatusService.checkAndUpdateBridgeStatus(user.id);
+        
+        if (bridgeResult.success && bridgeResult.verificationStatus === 'active') {
+          console.log('✅ Usuario aprobado en Bridge');
+          console.log(`💳 Bridge reporta ${bridgeResult.walletCount || 0} wallets`);
+          
+          // 2. Solo crear wallet si Bridge no tiene ninguna
+          if (bridgeResult.walletCount === 0) {
+            console.log('💳 Usuario no tiene wallets en Bridge, creando primera wallet...');
+            setIsCheckingWallets(true);
+            
+            // 3. Crear primera wallet usando el authStore
+            const { createWallet } = useAuthStore.getState();
+            const createResult = await createWallet({
+              chain: 'solana',
+              currency: 'usdc',
+              customerId: bridgeResult.bridgeCustomerId || '',
+              bridgeTags: ['default']
+            });
+            
+            if (createResult) {
+              console.log('✅ Primera wallet creada exitosamente');
+              // Refresh Bridge status para sincronizar la nueva wallet
+              await bridgeStatusService.checkAndUpdateBridgeStatus(user.id);
+            } else {
+              console.error('❌ Error creando primera wallet');
+            }
+          } else {
+            console.log(`✅ Usuario ya tiene ${bridgeResult.walletCount} wallets en Bridge - sincronización completada automáticamente`);
+            
+            // Asegurar que las wallets están cargadas en el store
+            const { loadUserWallets } = useAuthStore.getState();
+            await loadUserWallets();
+          }
+        } else {
+          console.log('⚠️ Usuario no está aprobado o hay error:', bridgeResult.verificationStatus);
+        }
+      } catch (error) {
+        console.error('💥 Error verificando estado y wallets:', error);
+      } finally {
+        setIsCheckingWallets(false);
+      }
+    };
+
+    checkUserStatusAndWallets();
+  }, [user]);
   
   const textColor = useThemeColor({}, 'text');
   const subtextColor = useThemeColor({}, 'textSecondary');

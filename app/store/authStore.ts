@@ -6,9 +6,9 @@ import { User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { VerificationStatus } from "../types/KycTypes";
 import {
-  Wallet,
-  WalletServiceCreateRequest,
-  WalletSyncResult
+    Wallet,
+    WalletServiceCreateRequest,
+    WalletSyncResult
 } from "../types/WalletTypes";
 
 // Session key for AsyncStorage
@@ -453,7 +453,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ walletsLoading: true, walletsError: null });
     try {
       console.log('💳 Loading user wallets...');
-      const result = await walletService.getWallets(user.id);
+      
+      // Get the actual profile.id from profiles table
+      const { supabaseAdmin } = await import('@/app/services/supabaseAdmin');
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('❌ Failed to get profile for loading wallets:', profileError);
+        set({ 
+          walletsLoading: false,
+          walletsError: 'Profile not found for loading wallets'
+        });
+        return false;
+      }
+      
+      const result = await walletService.getWallets(profile.id);
       
       if (result.success && result.data) {
         set({ 
@@ -504,10 +522,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       console.log('💳 Creating new wallet...');
       
+      // Get the actual profile.id from profiles table
+      const { supabaseAdmin } = await import('@/app/services/supabaseAdmin');
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('❌ Failed to get profile for wallet creation:', profileError);
+        set({ 
+          walletsLoading: false,
+          walletsError: 'Profile not found for wallet creation'
+        });
+        return null;
+      }
+      
       // Prepare the complete request with all required fields
       const completeRequest: WalletServiceCreateRequest = {
         ...request,
-        profileId: user.id,
+        profileId: request.profileId || profile.id, // Use provided profileId or the one we just fetched
         customerId: bridgeCustomerId,
       };
       
@@ -532,11 +567,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return null;
       }
     } catch (error) {
-      console.error('💥 Error creating wallet:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       set({ 
         walletsLoading: false,
-        walletsError: error instanceof Error ? error.message : 'Unknown error'
+        walletsError: errorMessage
       });
+      console.error('💥 Error creating wallet:', error);
       return null;
     }
   },
@@ -573,7 +609,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ walletsLoading: true, walletsError: null });
     try {
       console.log('💳 Syncing wallets...');
-      const result = await walletService.syncWallets(user.id, bridgeCustomerId);
+      
+      // Get the actual profile.id from profiles table
+      const { supabaseAdmin } = await import('@/app/services/supabaseAdmin');
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('userId', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('❌ Failed to get profile for wallet sync:', profileError);
+        set({ 
+          walletsLoading: false,
+          walletsError: 'Profile not found for wallet sync'
+        });
+        return { 
+          success: false, 
+          syncedCount: 0, 
+          createdCount: 0, 
+          updatedCount: 0, 
+          errors: ['Profile not found'] 
+        };
+      }
+      
+      const result = await walletService.syncWallets(profile.id, bridgeCustomerId);
       
       if (result.success) {
         // Reload wallets after sync
@@ -590,12 +650,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return result;
       }
     } catch (error) {
-      console.error('💥 Error syncing wallets:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       set({ 
         walletsLoading: false,
         walletsError: errorMessage
       });
+      console.error('💥 Error syncing wallets:', error);
       return { 
         success: false, 
         syncedCount: 0, 

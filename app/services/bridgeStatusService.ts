@@ -1,5 +1,6 @@
 import { bridgeService } from './bridgeService';
 import { supabaseAdmin } from './supabaseAdmin';
+import { walletService } from './walletService';
 
 export interface BridgeStatusCheck {
   success: boolean;
@@ -8,6 +9,7 @@ export interface BridgeStatusCheck {
   requirementsDue?: string[];
   hasActiveWallet?: boolean;
   canAccessHome?: boolean;
+  walletCount?: number;
   error?: string;
 }
 
@@ -27,13 +29,18 @@ function mapBridgeStatusToKYCStatus(bridgeStatus: string): string {
     offboarded: "offboarded",
   };
 
+  // Basado en la respuesta real de Bridge que incluye capabilities
+  if (bridgeStatus === "active") {
+    return "active";
+  }
+
   return statusMapping[bridgeStatus] || "not_started";
 }
 
 export const bridgeStatusService = {
   /**
    * Verificar el estado real de Bridge y actualizar la base de datos
-   * Versión mejorada basada en el dashboard
+   * Versión mejorada que también sincroniza wallets
    */
   checkAndUpdateBridgeStatus: async (userId: string): Promise<BridgeStatusCheck> => {
     try {
@@ -77,7 +84,8 @@ export const bridgeStatusService = {
           verificationStatus: 'not_started',
           requirementsDue: [],
           hasActiveWallet: false,
-          canAccessHome: false
+          canAccessHome: false,
+          walletCount: 0
         };
       }
 
@@ -101,8 +109,34 @@ export const bridgeStatusService = {
         capabilities: bridgeData.capabilities
       });
 
-      // 4. Mapear datos de Bridge a nuestros campos KYC
-      const mappedKycStatus = mapBridgeStatusToKYCStatus(bridgeData.status || bridgeData.verification_status);
+      // 4. Obtener wallets desde Bridge
+      console.log('💳 Obteniendo wallets desde Bridge...');
+      const walletsResponse = await bridgeService.getCustomerWallets(kycProfile.bridge_customer_id);
+      
+      let walletCount = 0;
+      if (walletsResponse.success && walletsResponse.data) {
+        walletCount = walletsResponse.data.length;
+        console.log(`✅ Encontradas ${walletCount} wallets en Bridge`);
+        
+        // 5. Sincronizar wallets con la base de datos
+        if (walletCount > 0) {
+          console.log('🔄 Sincronizando wallets con la base de datos...');
+          const syncResult = await walletService.syncWallets(profile.id, kycProfile.bridge_customer_id);
+          
+          if (syncResult.success) {
+            console.log(`✅ Wallets sincronizadas: ${syncResult.syncedCount} total, ${syncResult.createdCount} creadas, ${syncResult.updatedCount} actualizadas`);
+          } else {
+            console.warn('⚠️ Error sincronizando wallets:', syncResult.errors);
+          }
+        }
+      } else {
+        console.log('ℹ️ No se encontraron wallets en Bridge o error al obtenerlas');
+      }
+
+      // 6. Mapear datos de Bridge a nuestros campos KYC
+      // Usar status si está disponible, sino verification_status
+      const bridgeStatus = bridgeData.status || bridgeData.verification_status;
+      const mappedKycStatus = mapBridgeStatusToKYCStatus(bridgeStatus);
       
       const updateData = {
         kyc_status: mappedKycStatus,
@@ -110,17 +144,17 @@ export const bridgeStatusService = {
         bridge_raw_response: bridgeData, // Guardar respuesta completa para auditoría
         
         // Actualizar campos específicos de Bridge
-        kyc_approved_at: (bridgeData.status === "active" || bridgeData.status === "approved") && bridgeData.updated_at
+        kyc_approved_at: bridgeStatus === "active" && bridgeData.updated_at
           ? new Date(bridgeData.updated_at).toISOString()
           : null,
-        kyc_rejected_at: bridgeData.status === "rejected" && bridgeData.updated_at
+        kyc_rejected_at: bridgeStatus === "rejected" && bridgeData.updated_at
           ? new Date(bridgeData.updated_at).toISOString()
           : null,
-        kyc_rejection_reason: bridgeData.rejection_reasons?.[0]?.reason || null,
+        kyc_rejection_reason: null, // Se actualizará después si hay rejection_reasons
         
         // Actualizar capacidades de Bridge
-        payin_crypto: bridgeData.capabilities?.payin_crypto || 'pending',
-        payout_crypto: bridgeData.capabilities?.payout_crypto || 'pending',
+        payin_crypto: bridgeData.capabilities?.payin_crypto || bridgeData.payin_crypto || 'pending',
+        payout_crypto: bridgeData.capabilities?.payout_crypto || bridgeData.payout_crypto || 'pending',
         payin_fiat: bridgeData.capabilities?.payin_fiat || 'pending',
         payout_fiat: bridgeData.capabilities?.payout_fiat || 'pending',
         
@@ -129,10 +163,10 @@ export const bridgeStatusService = {
         future_requirements_due: bridgeData.future_requirements_due || [],
         
         // Actualizar términos de servicio
-        has_accepted_terms_of_service: bridgeData.has_accepted_terms_of_service ?? false,
+        has_accepted_terms_of_service: !!bridgeData.has_accepted_terms_of_service,
       };
 
-      // 5. Actualizar KYC profile con datos mapeados
+      // 7. Actualizar KYC profile con datos mapeados
       const { error: updateError } = await supabaseAdmin
         .from('kyc_profiles')
         .update(updateData)
@@ -148,34 +182,21 @@ export const bridgeStatusService = {
 
       console.log('✅ Estado actualizado en base de datos con información real de Bridge');
 
-      // 6. Manejar rejection reasons si existen
-      if (bridgeData.rejection_reasons && bridgeData.rejection_reasons.length > 0) {
+      // 8. Manejar rejection reasons si existen
+      if (bridgeData.rejection_reasons && Array.isArray(bridgeData.rejection_reasons) && bridgeData.rejection_reasons.length > 0) {
         console.log('📝 Procesando rejection reasons...');
         
-        // Eliminar rejection reasons anteriores
+        // Actualizar rejection reason en KYC profile
+        const rejectionReason = bridgeData.rejection_reasons.join(', ');
         await supabaseAdmin
-          .from('rejection_reasons')
-          .delete()
-          .eq('kyc_profile_id', kycProfile.id);
-
-        // Crear nuevos rejection reasons
-        for (const rejectionReason of bridgeData.rejection_reasons) {
-          await supabaseAdmin
-            .from('rejection_reasons')
-            .insert({
-              kyc_profile_id: kycProfile.id,
-              reason: rejectionReason.reason,
-              developer_reason: rejectionReason.developer_reason || rejectionReason.reason,
-              bridge_created_at: rejectionReason.created_at
-                ? new Date(rejectionReason.created_at).toISOString()
-                : new Date().toISOString(),
-            });
-        }
+          .from('kyc_profiles')
+          .update({ kyc_rejection_reason: rejectionReason })
+          .eq('profile_id', profile.id);
         
         console.log('✅ Rejection reasons actualizados');
       }
 
-      // 7. Manejar endorsements si existen
+      // 9. Manejar endorsements si existen
       if (bridgeData.endorsements && Array.isArray(bridgeData.endorsements)) {
         console.log('📝 Procesando endorsements...');
         
@@ -183,14 +204,14 @@ export const bridgeStatusService = {
         await supabaseAdmin
           .from('endorsements')
           .delete()
-          .eq('kyc_profile_id', kycProfile.id);
+          .eq('kyc_profile_id', profile.id);
 
         // Crear nuevos endorsements
         for (const endorsement of bridgeData.endorsements) {
           await supabaseAdmin
             .from('endorsements')
             .insert({
-              kyc_profile_id: kycProfile.id,
+              kyc_profile_id: profile.id,
               endorsement_type: endorsement.name,
               status: endorsement.status,
               requirements: endorsement.requirements,
@@ -200,19 +221,18 @@ export const bridgeStatusService = {
         console.log('✅ Endorsements actualizados');
       }
 
-      // 8. Verificar si tiene wallet activa
-      const hasActiveWallet = (bridgeData.status === 'active' || bridgeData.verification_status === 'active') && 
-                             (bridgeData.capabilities?.payin_crypto?.status === 'enabled' || 
-                              bridgeData.capabilities?.payout_crypto?.status === 'enabled');
+      // 10. Verificar si tiene wallet activa
+      const hasActiveWallet = bridgeStatus === 'active' && walletCount > 0;
 
-      // 9. Determinar si puede acceder a home
-      const canAccessHome = (bridgeData.status === 'active' || bridgeData.verification_status === 'active') && hasActiveWallet;
+      // 11. Determinar si puede acceder a home
+      const canAccessHome = bridgeStatus === 'active' && hasActiveWallet;
 
       console.log('✅ Refresh completo de Bridge completado:', {
         bridgeCustomerId: kycProfile.bridge_customer_id,
         mappedStatus: mappedKycStatus,
         hasActiveWallet,
         canAccessHome,
+        walletCount,
         requirementsDue: bridgeData.requirements_due?.length || 0,
         endorsements: bridgeData.endorsements?.length || 0,
         rejectionReasons: bridgeData.rejection_reasons?.length || 0
@@ -224,7 +244,8 @@ export const bridgeStatusService = {
         verificationStatus: mappedKycStatus,
         requirementsDue: bridgeData.requirements_due || [],
         hasActiveWallet,
-        canAccessHome
+        canAccessHome,
+        walletCount
       };
 
     } catch (error) {

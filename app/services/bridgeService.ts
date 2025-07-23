@@ -106,7 +106,7 @@ const bridgeRequest = async <T>(
     const headers: Record<string, string> = {
       "Api-Key": BRIDGE_API_KEY,
       "Content-Type": "application/json",
-      ...options.headers,
+      ...(options.headers as Record<string, string> || {}),
     };
 
     // Add Idempotency-Key only for POST, PUT, PATCH, DELETE requests
@@ -138,6 +138,18 @@ const bridgeRequest = async <T>(
     }
 
     console.log("✅ Bridge API Success:", endpoint);
+    
+    // Log useful response info for debugging without exposing sensitive data
+    if (endpoint.includes('/wallets') && responseData) {
+      if (Array.isArray(responseData)) {
+        console.log(`🔍 Response: Array with ${responseData.length} items`);
+      } else if (responseData.count !== undefined && responseData.data) {
+        console.log(`🔍 Response: Object with count=${responseData.count}, data array length=${Array.isArray(responseData.data) ? responseData.data.length : 'not array'}`);
+      } else {
+        console.log(`🔍 Response: Object type=${typeof responseData}, hasData=${!!responseData.data}`);
+      }
+    }
+    
     return { data: responseData };
   } catch (error) {
     console.error("💥 Bridge API Network Error:", error);
@@ -701,20 +713,55 @@ export const bridgeService = {
     error?: string;
   }> => {
     try {
+      console.log(`💳 Bridge API: Getting wallets for customer ${customerId}`);
+      
       const response = await bridgeRequest(`/customers/${customerId}/wallets`);
 
       if (response.error) {
+        console.error(`❌ Bridge API Error getting wallets:`, response.error);
         return {
           success: false,
           error: `Get Wallets Error: ${response.error.message}`,
         };
       }
 
+      // Log the exact response structure for debugging
+      console.log(`🔍 Bridge API response structure:`, {
+        hasData: !!response.data,
+        dataType: typeof response.data,
+        isArray: Array.isArray(response.data),
+        rawResponse: response.data
+      });
+
+      // Bridge API returns: { count: number, data: Array }
+      // We need to extract the 'data' property from the response
+      let walletsArray: any[] = [];
+      
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          // If response.data is already an array (older API format)
+          walletsArray = response.data;
+        } else if (typeof response.data === 'object' && response.data !== null) {
+          // Check if it's the new API format with count and data properties
+          const responseObj = response.data as any;
+          if (responseObj.data && Array.isArray(responseObj.data)) {
+            // If response.data has a 'data' property with the array (current API format)
+            walletsArray = responseObj.data;
+            console.log(`📊 Bridge reported ${responseObj.count || 'unknown'} wallets, found ${walletsArray.length} in data array`);
+          } else {
+            console.warn(`⚠️ Unexpected Bridge API response format:`, response.data);
+          }
+        }
+      }
+
+      console.log(`✅ Successfully extracted ${walletsArray.length} wallets from Bridge API`);
+
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
+        data: walletsArray,
       };
     } catch (error) {
+      console.error(`💥 Exception getting wallets for customer ${customerId}:`, error);
       return {
         success: false,
         error: `Get Wallets Failed: ${

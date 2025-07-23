@@ -34,6 +34,7 @@ export default function VerificationSuccessScreen() {
   const [processCompleted, setProcessCompleted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [showToSWebView, setShowToSWebView] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [steps, setSteps] = useState<ProcessStep[]>([
     {
@@ -92,6 +93,64 @@ export default function VerificationSuccessScreen() {
 
   const findStepIndex = (stepId: string) => {
     return steps.findIndex(step => step.id === stepId);
+  };
+
+  // Función para refrescar el estado desde Bridge
+  const refreshBridgeStatus = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      console.log('🔄 Refrescando estado desde Bridge...');
+      
+      // Importar el servicio de Bridge
+      const { bridgeStatusService } = await import('@/app/services/bridgeStatusService');
+      const { useAuthStore } = await import('@/app/store/authStore');
+      
+      const { user } = useAuthStore.getState();
+      if (!user) {
+        console.error('❌ No hay usuario autenticado');
+        return;
+      }
+
+      const result = await bridgeStatusService.checkAndUpdateBridgeStatus(user.id);
+      
+      if (result.success) {
+        console.log('✅ Estado de Bridge actualizado:', result);
+        
+        // Actualizar el estado local basado en el resultado
+        if (result.verificationStatus === 'active') {
+          // Usuario aprobado, redirigir a home
+          router.replace('/(private)/home');
+        } else if (result.verificationStatus === 'rejected') {
+          // Usuario rechazado, redirigir a kyc-rejected
+          router.replace('/(auth)/kyc-rejected');
+        } else {
+          // Estado pendiente, mostrar mensaje
+          Alert.alert(
+            'Estado Actualizado',
+            `Tu estado actual es: ${result.verificationStatus || 'pendiente'}. Te notificaremos cuando esté listo.`,
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        console.error('❌ Error refrescando estado:', result.error);
+        Alert.alert(
+          'Error',
+          'No se pudo actualizar el estado. Inténtalo de nuevo.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('💥 Error en refreshBridgeStatus:', error);
+      Alert.alert(
+        'Error',
+        'Ocurrió un error al actualizar el estado.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Auto-start the process when component mounts
@@ -561,6 +620,14 @@ export default function VerificationSuccessScreen() {
               }}
               type="outline"
               style={[styles.button, { marginTop: 8, backgroundColor: '#E0F2FE' }]}
+            />
+            
+            <ThemedButton 
+              title={isRefreshing ? "Refrescando..." : "🔄 Refrescar Estado Bridge"}
+              onPress={refreshBridgeStatus}
+              disabled={isRefreshing}
+              type="outline"
+              style={[styles.button, { marginTop: 8, backgroundColor: '#F0FDF4' }]}
             />
           </View>
         )}

@@ -5,25 +5,25 @@
 
 import { createId } from '@paralleldrive/cuid2';
 import {
-    canCreateWallets,
-    getErrorMessages,
-    getWalletEnvironmentConfig
+  canCreateWallets,
+  getErrorMessages,
+  getWalletEnvironmentConfig
 } from '../config/walletConfig';
 import {
-    BridgeWallet,
-    BridgeWalletCreateRequest,
-    BridgeWalletCreateResponse,
-    BridgeWalletListResponse,
-    WALLET_CONSTANTS,
-    Wallet,
-    WalletCreateData,
-    WalletServiceCreateRequest,
-    WalletServiceResponse,
-    WalletSyncResult,
-    WalletTag,
-    WalletUpdateData,
-    isValidWalletChain,
-    isValidWalletTag
+  BridgeWallet,
+  BridgeWalletCreateRequest,
+  BridgeWalletCreateResponse,
+  BridgeWalletListResponse,
+  WALLET_CONSTANTS,
+  Wallet,
+  WalletCreateData,
+  WalletServiceCreateRequest,
+  WalletServiceResponse,
+  WalletSyncResult,
+  WalletTag,
+  WalletUpdateData,
+  isValidWalletChain,
+  isValidWalletTag
 } from '../types/WalletTypes';
 import { bridgeService } from './bridgeService';
 import { supabaseAdmin } from './supabaseAdmin';
@@ -213,8 +213,8 @@ const saveWalletToDatabase = async (walletData: WalletCreateData): Promise<Walle
 
     const dbWallet = {
       id: walletId,
-      createdAt: now,
-      updatedAt: now,
+      "createdAt": now,      // Use camelCase with quotes as per schema
+      "updatedAt": now,      // Use camelCase with quotes as per schema
       profile_id: walletData.profileId,
       wallet_tag: walletData.walletTag,
       is_active: true,
@@ -286,7 +286,7 @@ const getWalletsFromDatabase = async (profileId: string): Promise<WalletServiceR
       .select('*')
       .eq('profile_id', profileId)
       .eq('is_active', true)
-      .order('createdAt', { ascending: false });
+      .order('"createdAt"', { ascending: false }); // Use quotes for camelCase column
 
     if (error) {
       console.error('❌ Database wallet fetch error:', error);
@@ -330,6 +330,34 @@ const getWalletsFromDatabase = async (profileId: string): Promise<WalletServiceR
 };
 
 /**
+ * Map camelCase properties to correct database column names
+ * Note: Database schema has mixed naming conventions:
+ * - "createdAt", "updatedAt" (camelCase with quotes)
+ * - profile_id, wallet_tag, bridge_tags, etc. (snake_case)
+ */
+const mapUpdateDataForDatabase = (updates: WalletUpdateData) => {
+  const mappedData: any = {
+    "updatedAt": new Date(), // Use camelCase with quotes as per schema
+  };
+
+  // Map camelCase properties to correct database column names
+  if (updates.bridgeTags !== undefined) {
+    mappedData.bridge_tags = updates.bridgeTags;
+  }
+  if (updates.bridgeUpdatedAt !== undefined) {
+    mappedData.bridge_updated_at = updates.bridgeUpdatedAt;
+  }
+  if (updates.walletTag !== undefined) {
+    mappedData.wallet_tag = updates.walletTag;
+  }
+  if (updates.isActive !== undefined) {
+    mappedData.is_active = updates.isActive;
+  }
+
+  return mappedData;
+};
+
+/**
  * Update wallet in database
  */
 const updateWalletInDatabase = async (
@@ -339,10 +367,8 @@ const updateWalletInDatabase = async (
   try {
     console.log('💾 Updating wallet in database:', { walletId, updates });
 
-    const updateData = {
-      ...updates,
-      updatedAt: new Date(),
-    };
+    // Map camelCase to snake_case for database
+    const updateData = mapUpdateDataForDatabase(updates);
 
     const { data, error } = await supabaseAdmin
       .from('wallets')
@@ -417,7 +443,7 @@ export const walletService = {
       }
 
       // Check wallet limit
-      const existingWallets = await getWalletsFromDatabase(request.profileId);
+      const existingWallets = await getWalletsFromDatabase(request.profileId!);
       if (existingWallets.success && existingWallets.data) {
         if (existingWallets.data.length >= WALLET_CONSTANTS.MAX_WALLETS_PER_USER) {
           return {
@@ -454,7 +480,7 @@ export const walletService = {
       }
 
       // Step 2: Save to database
-      const walletData = formatBridgeWalletForDatabase(bridgeResult.wallet, request.profileId);
+      const walletData = formatBridgeWalletForDatabase(bridgeResult.wallet, request.profileId!);
       
       // Override wallet tag if provided
       if (request.walletTag) {

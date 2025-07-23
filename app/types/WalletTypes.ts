@@ -115,7 +115,7 @@ export interface WalletServiceResponse<T = any> {
  * Request interface for creating a wallet via service
  */
 export interface WalletServiceCreateRequest {
-  profileId: string;
+  profileId?: string;                   // Optional - will be obtained from authStore if not provided
   customerId: string;                   // Bridge customer ID
   chain: WalletChain;
   currency: WalletCurrency;

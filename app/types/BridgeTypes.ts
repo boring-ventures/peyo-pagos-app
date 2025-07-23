@@ -68,6 +68,7 @@ export interface BridgeCustomer {
   first_name: string;
   last_name: string;
   email: string;
+  status: BridgeVerificationStatus; // Campo real de Bridge
   residential_address: {
     street_line_1: string;
     street_line_2?: string;
@@ -77,14 +78,23 @@ export interface BridgeCustomer {
     country: string;
   };
   birth_date: string;
-  verification_status: BridgeVerificationStatus;
+  verification_status: BridgeVerificationStatus; // Mantener para compatibilidad
   requirements_due: string[];
+  future_requirements_due?: string[]; // Campo adicional de Bridge
   payin_crypto: BridgeCapabilityStatus;
   payout_crypto: BridgeCapabilityStatus;
   signed_agreement_id: string;
+  has_accepted_terms_of_service: boolean; // Campo real de Bridge
   created_at: string; // ISO 8601 timestamp
   updated_at: string; // ISO 8601 timestamp
   endorsements?: BridgeEndorsement[]; // Optional endorsements array
+  rejection_reasons?: string[]; // Campo real de Bridge
+  capabilities?: {
+    payin_crypto: BridgeCapabilityStatus;
+    payout_crypto: BridgeCapabilityStatus;
+    payin_fiat: BridgeCapabilityStatus;
+    payout_fiat: BridgeCapabilityStatus;
+  }; // Campo real de Bridge
 }
 
 // Bridge Terms of Service Response

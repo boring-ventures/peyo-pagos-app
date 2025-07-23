@@ -2,6 +2,7 @@ import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
+import { bridgeStatusService } from '@/app/services/bridgeStatusService';
 import { useAuthStore } from '@/app/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,12 +11,20 @@ import { Alert, Animated, Linking, StyleSheet, View } from 'react-native';
 
 export default function KycPendingScreen() {
   const router = useRouter();
-  const { updateKycStatus } = useAuthStore();
+  const { updateKycStatus, user } = useAuthStore();
   const tintColor = useThemeColor({}, 'tint');
   const warningColor = '#FF9800';
 
   const [pulseAnim] = useState(new Animated.Value(1));
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [bridgeStatus, setBridgeStatus] = useState<{
+    verificationStatus?: string;
+    requirementsDue?: string[];
+    hasActiveWallet?: boolean;
+    canAccessHome?: boolean;
+    walletCount?: number;
+  } | null>(null);
 
   useEffect(() => {
     // Update KYC status to under review
@@ -47,6 +56,51 @@ export default function KycPendingScreen() {
 
     return () => pulse.stop();
   }, []);
+
+  // Función para verificar el estado real de Bridge
+  const checkBridgeStatus = async () => {
+    if (!user || isCheckingStatus) return;
+    
+    setIsCheckingStatus(true);
+    try {
+      console.log('🔍 Verificando estado real de Bridge...');
+      const result = await bridgeStatusService.checkAndUpdateBridgeStatus(user.id);
+      
+      if (result.success) {
+        setBridgeStatus({
+          verificationStatus: result.verificationStatus,
+          requirementsDue: result.requirementsDue,
+          hasActiveWallet: result.hasActiveWallet,
+          canAccessHome: result.canAccessHome,
+          walletCount: result.walletCount,
+        });
+        
+        console.log('✅ Estado de Bridge actualizado:', result);
+        
+        // Si el usuario está aprobado, redirigir
+        if (result.verificationStatus === 'active') {
+          router.replace('/(private)/home');
+        } else if (result.verificationStatus === 'rejected') {
+          router.replace('/(auth)/kyc-rejected');
+        }
+      } else {
+        console.error('❌ Error verificando estado:', result.error);
+      }
+    } catch (error) {
+      console.error('💥 Error en checkBridgeStatus:', error);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  // Verificar estado al cargar la pantalla
+  useEffect(() => {
+    checkBridgeStatus();
+  }, [user]);
+
+  const handleRefresh = () => {
+    checkBridgeStatus();
+  };
 
   const handleContinue = () => {
     router.replace('/(private)/home');
@@ -121,6 +175,45 @@ export default function KycPendingScreen() {
                 <ThemedText style={styles.timelineText}>Puedes explorar la app con funcionalidad limitada</ThemedText>
               </View>
             </View>
+          </View>
+
+          {/* Bridge Status Information */}
+          {bridgeStatus && (
+            <View style={styles.statusContainer}>
+              <ThemedText style={styles.statusTitle}>
+                Estado de Bridge: {bridgeStatus.verificationStatus?.toUpperCase()}
+              </ThemedText>
+              
+              {bridgeStatus.walletCount !== undefined && (
+                <ThemedText style={styles.timelineText}>
+                  Wallets en Bridge: {bridgeStatus.walletCount}
+                </ThemedText>
+              )}
+              
+              {bridgeStatus.requirementsDue && bridgeStatus.requirementsDue.length > 0 && (
+                <View style={styles.requirementsContainer}>
+                  <ThemedText style={styles.requirementsTitle}>
+                    Requisitos pendientes:
+                  </ThemedText>
+                  {bridgeStatus.requirementsDue.map((requirement, index) => (
+                    <ThemedText key={index} style={styles.requirementItem}>
+                      • {requirement}
+                    </ThemedText>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Refresh Button */}
+          <View style={styles.refreshContainer}>
+            <ThemedButton
+              title={isCheckingStatus ? "Verificando..." : "🔄 Verificar Estado"}
+              type="outline"
+              onPress={handleRefresh}
+              disabled={isCheckingStatus}
+              style={styles.refreshButton}
+            />
           </View>
 
           {/* Contact Support */}
@@ -243,5 +336,38 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     marginTop: 16,
+  },
+  statusContainer: {
+    backgroundColor: '#F3F4F6',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    width: '100%',
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  requirementsContainer: {
+    marginTop: 8,
+  },
+  requirementsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  requirementItem: {
+    fontSize: 12,
+    opacity: 0.8,
+    marginLeft: 8,
+  },
+  refreshContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  refreshButton: {
+    minWidth: 160,
   },
 }); 
