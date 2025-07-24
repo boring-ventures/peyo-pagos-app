@@ -24,7 +24,7 @@ export default function PrivateLayout() {
   useEffect(() => {
     if (pinEnabled) {
       sessionService.setInactivityCallback(() => {
-        router.replace('/(private)/enter-pin');
+        router.replace("/(private)/enter-pin");
       });
       sessionService.startInactivityTimer();
     }
@@ -38,7 +38,7 @@ export default function PrivateLayout() {
   useEffect(() => {
     if (pinEnabled) {
       sessionService.setInactivityCallback(() => {
-        router.replace('/(private)/enter-pin');
+        router.replace("/(private)/enter-pin");
       });
       sessionService.startInactivityTimer();
     }
@@ -53,17 +53,16 @@ export default function PrivateLayout() {
       screenOptions={{
         tabBarActiveTintColor: tabIconSelectedColor,
         tabBarInactiveTintColor: tabIconColor,
-        tabBarStyle: { 
+        tabBarStyle: {
           backgroundColor,
           borderTopColor,
           borderTopWidth: 0.5,
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 60,
+          height: 70,
+          paddingTop: 8
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
+          fontWeight: "500",
           marginTop: 4,
         },
         headerStyle: {
@@ -73,32 +72,72 @@ export default function PrivateLayout() {
         },
         headerTintColor: tabIconSelectedColor,
         headerTitleStyle: {
-          fontWeight: '600',
+          fontWeight: "600",
         },
       }}
     >
       <Tabs.Screen
         name="home"
         options={{
-          title: "Inicio",
+          title: "Billetera",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? "home" : "home-outline"} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? "wallet" : "wallet-outline"}
+              size={28}
+              color={color}
             />
           ),
         }}
       />
       <Tabs.Screen
+        name="qr"
+        options={{
+          title: "QR",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "qr-code" : "qr-code-outline"}
+              size={28}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "Notificaciones",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "notifications" : "notifications-outline"}
+              size={26}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="help"
+        options={{
+          title: "Ayuda",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "help-circle" : "help-circle-outline"}
+              size={26}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Perfil",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? "person" : "person-outline"} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={26}
+              color={color}
             />
           ),
         }}
@@ -117,7 +156,7 @@ export default function PrivateLayout() {
           },
           headerTintColor: tabIconSelectedColor,
           headerTitleStyle: {
-            fontWeight: '600',
+            fontWeight: "600",
           },
         }}
       />
@@ -134,7 +173,7 @@ export default function PrivateLayout() {
           },
           headerTintColor: tabIconSelectedColor,
           headerTitleStyle: {
-            fontWeight: '600',
+            fontWeight: "600",
           },
         }}
       />
@@ -151,7 +190,7 @@ export default function PrivateLayout() {
           },
           headerTintColor: tabIconSelectedColor,
           headerTitleStyle: {
-            fontWeight: '600',
+            fontWeight: "600",
           },
         }}
       />
@@ -168,7 +207,24 @@ export default function PrivateLayout() {
           },
           headerTintColor: tabIconSelectedColor,
           headerTitleStyle: {
-            fontWeight: '600',
+            fontWeight: "600",
+          },
+        }}
+      />
+      <Tabs.Screen
+        name="bridge-debug"
+        options={{
+          headerTitle: "",
+          href: null,
+          tabBarStyle: { display: "none" },
+          headerStyle: {
+            backgroundColor,
+            borderBottomColor: borderTopColor,
+            borderBottomWidth: 0.5,
+          },
+          headerTintColor: tabIconSelectedColor,
+          headerTitleStyle: {
+            fontWeight: "600",
           },
         }}
       />
