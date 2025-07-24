@@ -80,6 +80,7 @@ export default function PrivateLayout() {
         name="home"
         options={{
           title: "Billetera",
+          headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "wallet" : "wallet-outline"}
