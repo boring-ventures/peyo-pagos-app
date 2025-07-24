@@ -58,7 +58,7 @@ export default function PrivateLayout() {
           borderTopColor,
           borderTopWidth: 0.5,
           height: 70,
-          paddingTop: 8
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -218,15 +218,60 @@ export default function PrivateLayout() {
           headerTitle: "",
           href: null,
           tabBarStyle: { display: "none" },
-          headerStyle: {
-            backgroundColor,
-            borderBottomColor: borderTopColor,
-            borderBottomWidth: 0.5,
-          },
-          headerTintColor: tabIconSelectedColor,
-          headerTitleStyle: {
-            fontWeight: "600",
-          },
+        }}
+      />
+      <Tabs.Screen
+        name="deposit/currency-selection"
+        options={{
+          headerTitle: "",
+          headerShown: false,
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="deposit/bolivianos-form"
+        options={{
+          headerTitle: "",
+          headerShown: false,
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="deposit/qr-display"
+        options={{
+          headerTitle: "",
+          headerShown: false,
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="deposit/crypto-selection"
+        options={{
+          headerTitle: "",
+          headerShown: false,
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="deposit/network-selection"
+        options={{
+          headerTitle: "",
+          headerShown: false,
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="deposit/crypto-details"
+        options={{
+          headerTitle: "",
+          headerShown: false,
+          href: null,
+          tabBarStyle: { display: "none" },
         }}
       />
     </Tabs>

@@ -30,8 +30,8 @@ export const Colors = {
   light: {
     text: brandColors.navy,
     textSecondary: '#5A6978', // Softer navy/gray for less emphasis
-    background: brandColors.lightGray,
-    backgroundSecondary: brandColors.white,
+    background: brandColors.white,
+    backgroundSecondary: brandColors.lightGray,
     backgroundTertiary: brandColors.cyan,
     tint: tintColorLight,
     icon: brandColors.navy,

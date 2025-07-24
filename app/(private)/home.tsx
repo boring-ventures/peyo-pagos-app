@@ -6,6 +6,7 @@ import { bridgeStatusService } from "@/app/services/bridgeStatusService";
 import { useAuthStore } from "@/app/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
   const balanceTextColor = useThemeColor({}, "text");
+  const router = useRouter();
 
   // Verificar estado de Bridge y crear wallets si es necesario
   useEffect(() => {
@@ -120,8 +122,7 @@ export default function HomeScreen() {
   };
 
   const handleDeposit = () => {
-    // TODO: Connect to deposit flow
-    Alert.alert("Depósito", "Ir al flujo de depósito");
+    router.push("/(private)/deposit/currency-selection");
   };
 
   return (
