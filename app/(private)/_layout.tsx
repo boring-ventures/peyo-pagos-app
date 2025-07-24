@@ -94,6 +94,7 @@ export default function PrivateLayout() {
         name="qr"
         options={{
           title: "QR",
+          headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "qr-code" : "qr-code-outline"}
@@ -107,6 +108,7 @@ export default function PrivateLayout() {
         name="notifications"
         options={{
           title: "Notificaciones",
+          headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "notifications" : "notifications-outline"}
@@ -120,6 +122,7 @@ export default function PrivateLayout() {
         name="help"
         options={{
           title: "Ayuda",
+          headerShown: false,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "help-circle" : "help-circle-outline"}
