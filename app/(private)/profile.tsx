@@ -1,6 +1,3 @@
-import { ActionCard } from "@/app/components/ActionCard";
-import { EventTimeline } from "@/app/components/analytics/EventTimeline";
-import { BridgeIntegrationCard } from "@/app/components/bridge/BridgeIntegrationCard";
 import { UserTagDisplay } from "@/app/components/profile/UserTagDisplay";
 import { ProfileInfoRow } from "@/app/components/ProfileInfoRow";
 import { ThemedButton } from "@/app/components/ThemedButton";
@@ -9,59 +6,68 @@ import { ThemedView } from "@/app/components/ThemedView";
 import { ThemeSelector } from "@/app/components/ThemeSelector";
 import { UserAvatar } from "@/app/components/UserAvatar";
 import { CreateWalletModal } from "@/app/components/wallet/CreateWalletModal";
-import { WalletList } from "@/app/components/wallet/WalletList";
-import { WalletSyncButton } from "@/app/components/wallet/WalletSyncButton";
 import { useBridgeRefreshOnScreen } from "@/app/hooks/useBridgeAutoRefresh";
 import { kycService } from "@/app/services/kycService";
-import { walletService } from "@/app/services/walletService";
 import { useBridgeStore } from "@/app/store";
 import { useAuthStore } from "@/app/store/authStore";
 import { Wallet } from "@/app/types/WalletTypes";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, isAuthenticated, userTag, loadUserTag } =
-    useAuthStore(); // 🏷️ NEW: Include userTag and loadUserTag
+    useAuthStore();
   const {
     bridgeCustomerId,
     isInitialized,
     isLoading: bridgeLoading,
     integrationError,
   } = useBridgeStore();
-  
-  // 💳 NEW: Use wallets from authStore instead of local state
-  const { 
-    wallets: userWallets, 
-    walletsLoading, 
-    walletsError, 
+
+  // 💳 Use wallets from authStore instead of local state
+  const {
+    wallets: userWallets,
+    walletsLoading,
+    walletsError,
     loadUserWallets: authLoadUserWallets,
-    syncWallets: authSyncWallets 
+    syncWallets: authSyncWallets,
   } = useAuthStore();
+
   const [bridgeProgress, setBridgeProgress] = useState<
     "idle" | "in_progress" | "success" | "error"
   >("idle");
   const [bridgeError, setBridgeError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingUserTag, setIsLoadingUserTag] = useState(false);
+  const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
 
   // Auto-refresh Bridge status on profile screen
   useBridgeRefreshOnScreen("profile");
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingUserTag, setIsLoadingUserTag] = useState(false);
+  // Early return if not authenticated
+  if (!isAuthenticated || !user) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.centerContainer}>
+            <ThemedText>Redirigiendo...</ThemedText>
+          </View>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
-  // 💳 NEW: Wallet-related states (now using authStore)
-  const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
-
-  // If not authenticated, ensure redirect happens (handled by _layout.tsx)
+  // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated || !user) {
       router.replace("/(public)/login");
     }
   }, [isAuthenticated, user, router]);
 
-  // 🏷️ NEW: Load user tag if not available
+  // Load user tag if not available
   useEffect(() => {
     const loadUserTagIfNeeded = async () => {
       if (isAuthenticated && user && !userTag) {
@@ -80,15 +86,14 @@ export default function ProfileScreen() {
     loadUserTagIfNeeded();
   }, [isAuthenticated, user, userTag, loadUserTag]);
 
-  // 💳 NEW: Load user wallets (now using authStore)
+  // Load user wallets using authStore
   const loadUserWallets = async () => {
     if (!user?.id) return;
-
     console.log("💳 Loading wallets for user via authStore:", user.id);
     await authLoadUserWallets();
   };
 
-  // 💳 NEW: Sync wallets from Bridge (now using authStore)
+  // Sync wallets from Bridge using authStore
   const syncWallets = async () => {
     if (!user?.id || !bridgeCustomerId) {
       Alert.alert(
@@ -112,24 +117,24 @@ export default function ProfileScreen() {
       );
     } else {
       Alert.alert(
-        "Sync Failed", 
-        result.errors.length > 0 ? result.errors.join(", ") : "Unknown error occurred.", 
+        "Sync Failed",
+        result.errors.length > 0
+          ? result.errors.join(", ")
+          : "Unknown error occurred.",
         [{ text: "OK" }]
       );
     }
   };
 
-  // 💳 NEW: Handle wallet creation success (now using authStore)
+  // Handle wallet creation success
   const handleWalletCreated = async (wallet: Wallet) => {
     console.log("✅ New wallet created:", wallet.id);
-    // Reload wallets to include the new one
     await authLoadUserWallets();
   };
 
-  // Load wallets when component mounts or user changes (now using authStore)
+  // Load wallets when component mounts or user changes
   useEffect(() => {
     if (isAuthenticated && user?.id && !walletsLoading) {
-      // Only load if not already loading and we don't have wallets
       if (!userWallets || userWallets.length === 0) {
         authLoadUserWallets();
       }
@@ -153,7 +158,6 @@ export default function ProfileScreen() {
   };
 
   const handleViewWallets = () => {
-    // Could navigate to a dedicated wallets screen
     Alert.alert(
       "Bridge Wallets",
       "Función de wallets Bridge será implementada próximamente"
@@ -167,7 +171,6 @@ export default function ProfileScreen() {
     try {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error("No user found");
-      // Forzar retry robusto
       const result = await kycService.forceRetryBridgeIntegration();
       if (result.success) {
         setBridgeProgress("success");
@@ -181,270 +184,192 @@ export default function ProfileScreen() {
     }
   };
 
+  // Safe string helpers to prevent undefined errors
+  const getDisplayName = () => {
+    const firstName = profile?.first_name || "";
+    const lastName = profile?.last_name || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || "Usuario";
+  };
+
+  const getUserEmail = () => {
+    return user?.email || "No especificado";
+  };
+
   return (
     <ThemedView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* User Avatar and Name Section */}
-        <View style={styles.avatarContainer}>
-          <UserAvatar imageUrl={profile?.avatar_url} size={100} />
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* User Avatar and Name Section */}
+          <View style={styles.avatarContainer}>
+            <UserAvatar imageUrl={profile?.avatar_url} size={100} />
 
-          <ThemedText type="title" style={styles.displayName}>
-            {`${profile?.first_name || ""} ${
-              profile?.last_name || ""
-            }`.trim() || "Usuario"}
-          </ThemedText>
+            <ThemedText type="title" style={styles.displayName}>
+              {getDisplayName()}
+            </ThemedText>
 
-          <ThemedText style={styles.email}>{user?.email}</ThemedText>
-        </View>
+            <ThemedText style={styles.email}>{getUserEmail()}</ThemedText>
+          </View>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <ThemedButton
-            title="Editar Perfil"
-            type="outline"
-            onPress={handleEditProfile}
-            style={styles.actionButton}
-          />
-          <ThemedButton
-            title="Configuración"
-            type="outline"
-            onPress={() => router.push("/(private)/security-settings")}
-            style={styles.actionButton}
-          />
-        </View>
-
-        {/* Profile Information */}
-        <View style={styles.sectionContainer}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Información Personal
-          </ThemedText>
-
-          <ProfileInfoRow
-            label="Nombre"
-            value={profile?.first_name ?? "No especificado"}
-            icon="person-outline"
-          />
-          <ProfileInfoRow
-            label="Apellido"
-            value={profile?.last_name ?? "No especificado"}
-            icon="people-outline"
-          />
-          <ProfileInfoRow
-            label="Email"
-            value={user?.email ?? "No especificado"}
-            icon="mail-outline"
-          />
-        </View>
-
-        {/* User Tag Section */}
-        <View style={styles.sectionContainer}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Mi Código de Usuario
-          </ThemedText>
-
-          {userTag ? (
-            <UserTagDisplay
-              userTag={userTag}
-              isLoading={isLoadingUserTag}
-              size="medium"
-              showCopyButton={true}
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            <ThemedButton
+              title="Editar Perfil"
+              type="outline"
+              onPress={handleEditProfile}
+              style={styles.actionButton}
             />
-          ) : (
-            <ThemedText style={styles.noDataText}>
-              {isLoadingUserTag ? "Cargando..." : "Código no disponible"}
-            </ThemedText>
-          )}
-        </View>
+            <ThemedButton
+              title="Configuración"
+              type="outline"
+              onPress={() => router.push("/(private)/security-settings")}
+              style={styles.actionButton}
+            />
+          </View>
 
-        {/* 💳 NEW: Wallets Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.walletSectionHeader}>
+          {/* Profile Information */}
+          <View style={styles.sectionContainer}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Mis Wallets
+              Información Personal
             </ThemedText>
-            <View style={styles.walletActions}>
-              <WalletSyncButton
-                onSync={syncWallets}
-                isLoading={walletsLoading}
-                showText={false}
-                disabled={!bridgeCustomerId}
+
+            <ProfileInfoRow
+              label="Nombre"
+              value={profile?.first_name || "No especificado"}
+              icon="person-outline"
+            />
+            <ProfileInfoRow
+              label="Apellido"
+              value={profile?.last_name || "No especificado"}
+              icon="people-outline"
+            />
+            <ProfileInfoRow
+              label="Email"
+              value={getUserEmail()}
+              icon="mail-outline"
+            />
+          </View>
+
+          {/* User Tag Section */}
+          <View style={styles.sectionContainer}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Mi Código de Usuario
+            </ThemedText>
+
+            {userTag ? (
+              <UserTagDisplay
+                userTag={userTag}
+                isLoading={isLoadingUserTag}
+                size="medium"
+                showCopyButton={true}
               />
-              {walletService.canCreateWallets() && bridgeCustomerId && (
-                <ThemedButton
-                  title="+"
-                  onPress={() => setShowCreateWalletModal(true)}
-                  style={styles.createWalletButton}
-                />
+            ) : (
+              <ThemedText style={styles.noDataText}>
+                {isLoadingUserTag ? "Cargando..." : "Código no disponible"}
+              </ThemedText>
+            )}
+          </View>
+
+          {/* Preferences Section */}
+          <View style={styles.sectionContainer}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Preferencias
+            </ThemedText>
+
+            <ThemeSelector />
+
+            <ProfileInfoRow
+              label="Notificaciones"
+              value="Activadas"
+              icon="notifications-outline"
+            />
+            <ProfileInfoRow
+              label="Idioma"
+              value="Español"
+              icon="language-outline"
+            />
+          </View>
+
+          {/* Developer Section */}
+          {/* <View style={styles.sectionContainer}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Desarrollador
+            </ThemedText>
+
+            <ActionCard
+              title="Bridge Debug Panel"
+              subtitle="Panel de testing y depuración Bridge"
+              icon="code-outline"
+              onPress={() => router.push("/(private)/bridge-debug")}
+            />
+          </View> */}
+
+          {/* Bridge Setup Button for existing users without Bridge customer */}
+          {/* {!bridgeCustomerId && !isInitialized && (
+            <View style={styles.setupContainer}>
+              <ThemedButton
+                title={
+                  bridgeProgress === "in_progress"
+                    ? "Configurando Bridge..."
+                    : bridgeProgress === "error"
+                    ? "Reintentar Bridge"
+                    : "Configurar Bridge"
+                }
+                onPress={handleBridgeSetup}
+                loading={bridgeProgress === "in_progress" || bridgeLoading}
+                type={bridgeProgress === "error" ? "primary" : "outline"}
+                style={styles.setupButton}
+                disabled={bridgeProgress === "in_progress" || bridgeLoading}
+              />
+              {bridgeProgress === "error" && bridgeError && (
+                <ThemedText style={styles.errorText}>{bridgeError}</ThemedText>
+              )}
+              {bridgeProgress === "success" && (
+                <ThemedText style={styles.successText}>
+                  ¡Bridge configurado correctamente!
+                </ThemedText>
               )}
             </View>
-          </View>
+          )} */}
 
-          <WalletList
-            wallets={userWallets}
-            isLoading={walletsLoading}
-            error={walletsError}
-            onRefresh={loadUserWallets}
-            onWalletPress={(wallet: Wallet) => {
-              console.log("Wallet pressed:", wallet.id);
-              // Future: navigate to wallet details
-            }}
-          />
-
-          {!walletsLoading && userWallets.length === 0 && !walletsError && (
-            <ThemedText style={styles.noDataText}>
-              No hay wallets disponibles.
-              {bridgeCustomerId
-                ? " Presiona el botón de sincronizar para obtener tus wallets de Bridge."
-                : " Completa tu KYC para acceder a tus wallets."}
-            </ThemedText>
-          )}
-        </View>
-
-        {/* User Journey Progress Section */}
-        <View style={styles.sectionContainer}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Mi Progreso
-          </ThemedText>
-
-          {user?.id ? (
-            <EventTimeline
-              userId={user.id}
-              maxEvents={10}
-              showMetadata={false}
-            />
-          ) : (
-            <ThemedText style={styles.noDataText}>
-              No hay datos de progreso disponibles
-            </ThemedText>
-          )}
-        </View>
-
-        {/* Bridge Integration Section */}
-        <View style={styles.sectionContainer}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Bridge Wallet Integration
-          </ThemedText>
-
-          <BridgeIntegrationCard onViewWallets={handleViewWallets} />
-
-          {/* Additional Bridge Info */}
-          {bridgeCustomerId && (
-            <View style={styles.bridgeInfoContainer}>
-              <ThemedText style={styles.bridgeInfoText}>
-                💡 Bridge está configurado. Puedes crear wallets y realizar
-                transacciones.
-              </ThemedText>
-            </View>
-          )}
-        </View>
-
-        {/* Preferences Section */}
-        <View style={styles.sectionContainer}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Preferencias
-          </ThemedText>
-
-          <ThemeSelector />
-
-          <ProfileInfoRow
-            label="Notificaciones"
-            value="Activadas"
-            icon="notifications-outline"
-          />
-          <ProfileInfoRow
-            label="Idioma"
-            value="Español"
-            icon="language-outline"
-          />
-        </View>
-
-        {/* Developer Section */}
-        <View style={styles.sectionContainer}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Desarrollador
-          </ThemedText>
-
-          <ActionCard
-            title="Bridge Debug Panel"
-            subtitle="Panel de testing y depuración Bridge"
-            icon="code-outline"
-            onPress={() => router.push("/(private)/bridge-debug")}
-          />
-        </View>
-
-        {/* Logout Button */}
-        <View style={styles.logoutContainer}>
-          <ThemedButton
-            title="Cerrar Sesión"
-            type="primary"
-            onPress={handleLogout}
-            loading={isLoading}
-            style={styles.logoutButton}
-          />
-        </View>
-
-        {/* Bridge Setup Button for existing users without Bridge customer */}
-        {!bridgeCustomerId && !isInitialized && (
-          <View style={{ padding: 20, alignItems: "center" }}>
+          {/* KYC Review Button */}
+          {/* <View style={styles.setupContainer}>
             <ThemedButton
-              title={
-                bridgeProgress === "in_progress"
-                  ? "Configurando Bridge..."
-                  : bridgeProgress === "error"
-                  ? "Reintentar Bridge"
-                  : "Configurar Bridge"
-              }
-              onPress={handleBridgeSetup}
-              loading={bridgeProgress === "in_progress" || bridgeLoading}
-              type={bridgeProgress === "error" ? "primary" : "outline"}
-              style={{ marginBottom: 8, width: 220 }}
-              disabled={bridgeProgress === "in_progress" || bridgeLoading}
+              title="Revisar Proceso KYC"
+              onPress={() => router.push("/(auth)/document-review")}
+              type="outline"
+              style={styles.setupButton}
             />
-            {bridgeProgress === "error" && bridgeError && (
-              <ThemedText
-                style={{ color: "#FF6B6B", textAlign: "center", marginTop: 4 }}
-              >
-                {bridgeError}
-              </ThemedText>
-            )}
-            {bridgeProgress === "success" && (
-              <ThemedText
-                style={{ color: "#4ADE80", textAlign: "center", marginTop: 4 }}
-              >
-                ¡Bridge configurado correctamente!
-              </ThemedText>
-            )}
+            <ThemedText style={styles.helperText}>
+              Accede al proceso completo de KYC y Bridge
+            </ThemedText>
+          </View> */}
+
+          {/* Logout Button */}
+          <View style={styles.logoutContainer}>
+            <ThemedButton
+              title="Cerrar Sesión"
+              type="primary"
+              onPress={handleLogout}
+              loading={isLoading}
+              style={styles.logoutButton}
+            />
           </View>
-        )}
+        </ScrollView>
 
-        {/* KYC Review Button - Access to document-review screen */}
-        <View style={{ padding: 20, alignItems: "center" }}>
-          <ThemedButton
-            title="Revisar Proceso KYC"
-            onPress={() => router.push("/(auth)/document-review")}
-            type="outline"
-            style={{ marginBottom: 8, width: 220 }}
-          />
-          <ThemedText
-            style={{ color: "#6B7280", textAlign: "center", fontSize: 12 }}
-          >
-            Accede al proceso completo de KYC y Bridge
-          </ThemedText>
-        </View>
-      </ScrollView>
-
-      {/* 💳 NEW: Create Wallet Modal */}
-      <CreateWalletModal
-        isVisible={showCreateWalletModal}
-        onClose={() => setShowCreateWalletModal(false)}
-        onSuccess={handleWalletCreated}
-        profileId={user?.id || ""}
-        customerId={bridgeCustomerId || ""}
-      />
+        {/* Create Wallet Modal */}
+        <CreateWalletModal
+          isVisible={showCreateWalletModal}
+          onClose={() => setShowCreateWalletModal(false)}
+          onSuccess={handleWalletCreated}
+          profileId={user?.id || ""}
+          customerId={bridgeCustomerId || ""}
+        />
+      </SafeAreaView>
     </ThemedView>
   );
 }
@@ -453,11 +378,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingVertical: 20,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarContainer: {
     alignItems: "center",
@@ -490,13 +423,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 4,
   },
-  logoutContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 40,
-  },
-  logoutButton: {
-    width: "100%",
-  },
   noDataText: {
     textAlign: "center",
     color: "#888",
@@ -521,18 +447,73 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginLeft: 10,
   },
+  walletsContainer: {
+    gap: 12,
+  },
+  walletItem: {
+    padding: 12,
+    backgroundColor: "rgba(0,0,0,0.02)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.1)",
+  },
+  walletName: {
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  walletAddress: {
+    fontSize: 12,
+    opacity: 0.7,
+    fontFamily: "monospace",
+  },
+  progressContainer: {
+    padding: 16,
+    backgroundColor: "rgba(0,0,0,0.02)",
+    borderRadius: 8,
+  },
   bridgeInfoContainer: {
     marginTop: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: "#e0f7fa", // Light teal background
+    backgroundColor: "#e0f7fa",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#b2ebf2", // Light teal border
+    borderColor: "#b2ebf2",
   },
   bridgeInfoText: {
     textAlign: "center",
-    color: "#00796b", // Dark teal text
+    color: "#00796b",
     fontSize: 14,
+  },
+  setupContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  setupButton: {
+    marginBottom: 8,
+    width: 220,
+  },
+  errorText: {
+    color: "#FF6B6B",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  successText: {
+    color: "#4ADE80",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  helperText: {
+    color: "#6B7280",
+    textAlign: "center",
+    fontSize: 12,
+  },
+  logoutContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 40,
+  },
+  logoutButton: {
+    width: "100%",
   },
 });
