@@ -27,7 +27,8 @@ interface LiquidationAddressState {
     customerId: string,
     userWalletAddress: string,
     chain?: string,
-    currency?: string
+    currency?: string,
+    bridgeWalletId?: string
   ) => Promise<void>;
   
   getAllLiquidationAddresses: (
@@ -40,7 +41,8 @@ interface LiquidationAddressState {
     customerId: string,
     userWalletAddress: string,
     chain?: string,
-    currency?: string
+    currency?: string,
+    bridgeWalletId?: string
   ) => Promise<void>;
   
   clearCache: () => Promise<void>;
@@ -52,6 +54,15 @@ interface LiquidationAddressState {
   getCacheKey: (customerId: string, chain: string, currency: string) => string;
   getFormattedAddress: (address: string) => string;
   isAddressCacheFresh: (cacheKey: string) => boolean;
+  
+  // Debug methods
+  debugClearAllCache: () => Promise<void>;
+  debugGetCacheInfo: () => {
+    cacheKeys: string[];
+    cacheSize: number;
+    oldestEntry?: { key: string; age: number };
+    newestEntry?: { key: string; age: number };
+  };
 }
 
 export const useLiquidationAddressStore = create<LiquidationAddressState>((set, get) => ({
@@ -72,24 +83,45 @@ export const useLiquidationAddressStore = create<LiquidationAddressState>((set, 
     customerId: string,
     userWalletAddress: string,
     chain: string = 'solana',
-    currency: string = 'usdc'
+    currency: string = 'usdc',
+    bridgeWalletId?: string
   ) => {
     const state = get();
     const cacheKey = state.getCacheKey(customerId, chain, currency);
     
-    // Check cache first
-    if (state.isAddressCacheFresh(cacheKey)) {
-      console.log('💰 Using cached liquidation address');
-      const cachedData = state.addressCache[cacheKey].data;
-      set({
-        currentAddress: cachedData.liquidationAddress,
-        currentLiquidationData: cachedData,
-        error: null,
-      });
-      return;
-    }
+    set({ isLoading: true, error: null });
     
-    set({ isLoading: true, error: null, currentAddress: null, currentLiquidationData: null });
+    // Check cache first, but ALWAYS verify with Supabase for data consistency
+    if (state.isAddressCacheFresh(cacheKey)) {
+      console.log('💰 Found cached liquidation address, verifying with Supabase...');
+      const cachedData = state.addressCache[cacheKey].data;
+      
+      // Verify the cached address exists in Supabase
+      try {
+        const { liquidationAddressPersistenceService } = await import('../services/liquidationAddressPersistenceService');
+        const existingResult = await liquidationAddressPersistenceService.getLiquidationAddressById(
+          cachedData.bridgeLiquidationId
+        );
+        
+        if (existingResult.success && existingResult.data) {
+          console.log('✅ Cached liquidation address verified in Supabase');
+          set({
+            currentAddress: cachedData.liquidationAddress,
+            currentLiquidationData: cachedData,
+            isLoading: false,
+            error: null,
+          });
+          return;
+        } else {
+          console.log('⚠️ Cached address not found in Supabase, proceeding with full flow...');
+          // Clear this cache entry since it's not in Supabase
+          await state.clearAddressCache(cacheKey);
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to verify cached address in Supabase:', error);
+        // Continue with full flow if verification fails
+      }
+    }
     
     try {
       console.log(`🏦 Getting/creating liquidation address for ${chain}/${currency}`);
@@ -99,7 +131,8 @@ export const useLiquidationAddressStore = create<LiquidationAddressState>((set, 
         customerId,
         userWalletAddress,
         chain,
-        currency
+        currency,
+        bridgeWalletId
       );
       
       if (result.success && result.data) {
@@ -129,9 +162,9 @@ export const useLiquidationAddressStore = create<LiquidationAddressState>((set, 
         });
         
         if (result.isNewAddress) {
-          console.log('🆕 New liquidation address created:', result.data.liquidationAddress);
+          console.log('🆕 New liquidation address created and saved:', result.data.liquidationAddress);
         } else {
-          console.log('✅ Existing liquidation address retrieved:', result.data.liquidationAddress);
+          console.log('✅ Existing liquidation address retrieved from Supabase:', result.data.liquidationAddress);
         }
       } else {
         set({
@@ -181,7 +214,8 @@ export const useLiquidationAddressStore = create<LiquidationAddressState>((set, 
     customerId: string,
     userWalletAddress: string,
     chain: string = 'solana',
-    currency: string = 'usdc'
+    currency: string = 'usdc',
+    walletId?: string
   ) => {
     const state = get();
     const cacheKey = state.getCacheKey(customerId, chain, currency);
@@ -195,7 +229,8 @@ export const useLiquidationAddressStore = create<LiquidationAddressState>((set, 
       customerId,
       userWalletAddress,
       chain,
-      currency
+      currency,
+      walletId
     );
   },
   
@@ -269,11 +304,83 @@ export const useLiquidationAddressStore = create<LiquidationAddressState>((set, 
     const age = Date.now() - cachedItem.timestamp;
     return age < state.cacheValidityMs;
   },
+
+  // DEBUG: Clear all cache and force fresh data
+  debugClearAllCache: async (): Promise<void> => {
+    try {
+      console.log('🧹 DEBUG: Clearing all liquidation address cache');
+      await AsyncStorage.removeItem('liquidationAddressCache');
+      set({
+        addressCache: {},
+        currentAddress: null,
+        currentLiquidationData: null,
+        lastFetchedAt: null,
+        error: null,
+      });
+      console.log('✅ DEBUG: All cache cleared successfully');
+    } catch (error) {
+      console.error('❌ DEBUG: Failed to clear cache:', error);
+    }
+  },
+
+  // DEBUG: Get cache information
+  debugGetCacheInfo: (): {
+    cacheKeys: string[];
+    cacheSize: number;
+    oldestEntry?: { key: string; age: number };
+    newestEntry?: { key: string; age: number };
+  } => {
+    const state = get();
+    const cache = state.addressCache;
+    const keys = Object.keys(cache);
+    
+    if (keys.length === 0) {
+      return { cacheKeys: [], cacheSize: 0 };
+    }
+
+    const now = Date.now();
+    let oldest: { key: string; age: number } | undefined;
+    let newest: { key: string; age: number } | undefined;
+
+    keys.forEach(key => {
+      const age = now - cache[key].timestamp;
+      if (!oldest || age > oldest.age) {
+        oldest = { key, age };
+      }
+      if (!newest || age < newest.age) {
+        newest = { key, age };
+      }
+    });
+
+    console.log('🔍 DEBUG: Cache info:', {
+      keys,
+      size: keys.length,
+      oldest: oldest ? `${oldest.key} (${Math.round(oldest.age / 1000 / 60)} min ago)` : 'none',
+      newest: newest ? `${newest.key} (${Math.round(newest.age / 1000 / 60)} min ago)` : 'none'
+    });
+
+    return {
+      cacheKeys: keys,
+      cacheSize: keys.length,
+      oldestEntry: oldest,
+      newestEntry: newest,
+    };
+  },
 }));
 
 // Initialize cache from AsyncStorage on app start
 const initializeCache = async () => {
   try {
+    // EMERGENCY: Check if cache should be cleared
+    const shouldClearCache = await AsyncStorage.getItem('CLEAR_LIQUIDATION_CACHE');
+    if (shouldClearCache === 'true') {
+      console.log('🚨 EMERGENCY: Clearing liquidation cache on startup');
+      await AsyncStorage.removeItem('liquidationAddressCache');
+      await AsyncStorage.removeItem('CLEAR_LIQUIDATION_CACHE');
+      console.log('✅ EMERGENCY: Cache cleared successfully');
+      return;
+    }
+
     const cachedData = await AsyncStorage.getItem('liquidationAddressCache');
     if (cachedData) {
       const parsedCache = JSON.parse(cachedData);

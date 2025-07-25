@@ -35,7 +35,7 @@ export default function CryptoDetailsScreen() {
   const tintColor = useThemeColor({}, "tint");
 
   // Auth and Bridge data - Fixed TypeScript errors
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const {
     bridgeCustomerId,
     wallets,
@@ -52,6 +52,8 @@ export default function CryptoDetailsScreen() {
     getOrCreateDepositAddress,
     refreshAddress,
     clearError,
+    debugClearAllCache,
+    debugGetCacheInfo,
   } = useLiquidationAddressStore();
 
   // Get route params (with defaults since crypto-selection is bypassed)
@@ -87,7 +89,10 @@ export default function CryptoDetailsScreen() {
     useState(false);
 
   // Memoized values to prevent unnecessary re-renders
-  const hasUserData = useMemo(() => Boolean(user?.id), [user?.id]);
+  const hasUserData = useMemo(
+    () => Boolean(user?.id && profile),
+    [user?.id, profile]
+  );
   const hasBridgeData = useMemo(
     () => Boolean(bridgeCustomerId),
     [bridgeCustomerId]
@@ -97,10 +102,52 @@ export default function CryptoDetailsScreen() {
     [wallets]
   );
 
+  // Helper function to get the correct profile.id from profiles table
+  const getProfileId = useCallback(async (): Promise<string | null> => {
+    if (!user?.id) {
+      console.error("❌ No user.id available");
+      return null;
+    }
+
+    try {
+      console.log("🔍 Getting profile.id from profiles table...");
+      const { supabaseAdmin } = await import("@/app/services/supabaseAdmin");
+      const { data: profileData, error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("userId", user.id)
+        .single();
+
+      if (profileError || !profileData) {
+        console.error("❌ Failed to get profile.id:", profileError);
+        console.error(
+          "❌ This means the profile record is missing in the profiles table"
+        );
+        return null;
+      }
+
+      const profileId = profileData.id;
+      console.log(`✅ Found profile.id: ${profileId} for user.id: ${user.id}`);
+      return profileId;
+    } catch (error) {
+      console.error("💥 Error getting profile data:", error);
+      return null;
+    }
+  }, [user?.id]);
+
   // Initialize data on mount - simplified dependencies
   const initializeData = useCallback(async () => {
     try {
       console.log("🚀 Initializing crypto-details data");
+      console.log("📊 Debug data:", {
+        hasUser: !!user?.id,
+        userId: user?.id,
+        hasProfile: !!profile,
+        hasBridgeCustomerId: !!bridgeCustomerId,
+        bridgeCustomerId,
+        hasWallets: !!wallets?.length,
+        walletsCount: wallets?.length || 0,
+      });
 
       if (!hasUserData) {
         console.log("⏳ Waiting for user authentication...");
@@ -139,7 +186,16 @@ export default function CryptoDetailsScreen() {
       console.error("💥 Exception in initializeData:", error);
       setInitializationStatus("error");
     }
-  }, [hasUserData, hasBridgeData, hasWallets, loadCustomerWallets]);
+  }, [
+    hasUserData,
+    hasBridgeData,
+    hasWallets,
+    loadCustomerWallets,
+    user?.id,
+    profile,
+    bridgeCustomerId,
+    wallets,
+  ]);
 
   const loadLiquidationAddress = useCallback(async () => {
     // Prevent multiple simultaneous calls
@@ -152,6 +208,14 @@ export default function CryptoDetailsScreen() {
 
     try {
       console.log("🔄 Starting liquidation address loading process");
+      console.log("📊 Debug parameters for liquidation address:", {
+        userId: user?.id,
+        bridgeCustomerId,
+        chain,
+        cryptoType,
+        walletsAvailable: wallets?.length || 0,
+      });
+
       setLiquidationAddressLoaded(true); // Set flag immediately to prevent re-runs
 
       if (!user?.id || !bridgeCustomerId || !wallets?.length) {
@@ -164,6 +228,14 @@ export default function CryptoDetailsScreen() {
           "wallets:",
           wallets?.length || 0
         );
+        setInitializationStatus("error");
+        setLiquidationAddressLoaded(false);
+        return;
+      }
+
+      // Get the actual profile.id from profiles table (not user.id)
+      const profileId = await getProfileId();
+      if (!profileId) {
         setInitializationStatus("error");
         setLiquidationAddressLoaded(false);
         return;
@@ -195,13 +267,38 @@ export default function CryptoDetailsScreen() {
         primaryWallet.address
       );
 
-      await getOrCreateDepositAddress(
-        user.id,
-        bridgeCustomerId,
-        primaryWallet.address,
-        chain,
-        cryptoType
-      );
+             // Get the Supabase wallet.id for this Bridge wallet
+       console.log(`🔍 Finding Supabase wallet.id for Bridge wallet: ${primaryWallet.id}`);
+       let supabaseWalletId: string | undefined = undefined;
+       
+       try {
+         const { supabaseAdmin } = await import('@/app/services/supabaseAdmin');
+         const { data: walletData, error: walletError } = await supabaseAdmin
+           .from('wallets')
+           .select('id')
+           .eq('bridge_wallet_id', primaryWallet.id)
+           .single();
+
+         if (walletError || !walletData) {
+           console.warn('⚠️ Could not find Supabase wallet for Bridge wallet:', primaryWallet.id);
+           console.warn('⚠️ Continuing without wallet_id reference');
+         } else {
+           supabaseWalletId = walletData.id;
+           console.log(`✅ Found Supabase wallet.id: ${supabaseWalletId} for Bridge: ${primaryWallet.id}`);
+         }
+       } catch (error) {
+         console.warn('⚠️ Error looking up Supabase wallet:', error);
+       }
+
+       // Call with correct profile.id from profiles table
+       await getOrCreateDepositAddress(
+         profileId, // Using correct profile.id from profiles table
+         bridgeCustomerId,
+         primaryWallet.address,
+         chain,
+         cryptoType,
+         supabaseWalletId // Pass Supabase wallet.id directly
+       );
 
       // Reset retry attempts on success
       setRetryAttempts(0);
@@ -220,6 +317,7 @@ export default function CryptoDetailsScreen() {
     getOrCreateDepositAddress,
     liquidationAddressLoaded,
     isLoading,
+    getProfileId,
   ]);
 
   // Effect for initialization - only runs when core dependencies change
@@ -281,25 +379,87 @@ export default function CryptoDetailsScreen() {
       return;
     }
 
-    const primaryWallet =
-      wallets.find(
-        (wallet) =>
-          wallet.network === chain ||
-          (chain === "solana" && wallet.network === "solana")
-      ) || wallets[0];
+    try {
+      // Get the actual profile.id from profiles table (not user.id)
+      const profileId = await getProfileId();
+      if (!profileId) {
+        Alert.alert("Error", "No se pudo obtener la información del perfil");
+        return;
+      }
 
-    if (!primaryWallet) {
-      return;
+      const primaryWallet =
+        wallets.find(
+          (wallet) =>
+            wallet.network === chain ||
+            (chain === "solana" && wallet.network === "solana")
+        ) || wallets[0];
+
+      if (!primaryWallet) {
+        return;
+      }
+
+      await refreshAddress(
+        profileId, // Using correct profile.id from profiles table
+        bridgeCustomerId,
+        primaryWallet.address,
+        chain,
+        cryptoType,
+        primaryWallet.id // Pass Bridge wallet ID for Supabase wallet lookup
+      );
+    } catch (error) {
+      console.error("💥 Error in handleRefreshAddress:", error);
+      Alert.alert("Error", "No se pudo actualizar la dirección");
     }
+  }, [
+    user?.id,
+    bridgeCustomerId,
+    wallets,
+    chain,
+    cryptoType,
+    refreshAddress,
+    getProfileId,
+  ]);
 
-    await refreshAddress(
-      user.id,
-      bridgeCustomerId,
-      primaryWallet.address,
-      chain,
-      cryptoType
+  // DEBUG: Handle cache diagnostics
+  const handleDebugCache = useCallback(() => {
+    const cacheInfo = debugGetCacheInfo();
+    console.log("🔍 Cache diagnostic info:", cacheInfo);
+
+    Alert.alert(
+      "Debug: Cache Info",
+      `Cache entries: ${cacheInfo.cacheSize}\nKeys: ${cacheInfo.cacheKeys.join(
+        ", "
+      )}\n\nCheck console for details.`,
+      [{ text: "OK" }]
     );
-  }, [user?.id, bridgeCustomerId, wallets, chain, cryptoType, refreshAddress]);
+  }, [debugGetCacheInfo]);
+
+  // DEBUG: Handle cache clearing
+  const handleDebugClearCache = useCallback(() => {
+    Alert.alert(
+      "Debug: Clear Cache",
+      "¿Estás seguro de que quieres limpiar todo el caché de liquidation addresses? Esto forzará que se vuelvan a obtener desde Supabase/Bridge.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Limpiar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await debugClearAllCache();
+              setLiquidationAddressLoaded(false);
+              setInitializationStatus("checking");
+              await initializeData();
+              Alert.alert("Éxito", "Caché limpiado. Reintentando...");
+            } catch (error) {
+              console.error("Error clearing cache:", error);
+              Alert.alert("Error", "No se pudo limpiar el caché");
+            }
+          },
+        },
+      ]
+    );
+  }, [debugClearAllCache, initializeData]);
 
   const handleCopyAddress = useCallback(() => {
     if (currentAddress) {
@@ -607,47 +767,54 @@ export default function CryptoDetailsScreen() {
                 ]}
               >
                 <View style={styles.qrContainer}>
+                  {/* QR Code temporarily commented out due to crash issues */}
+                  {/* 
                   {(() => {
                     try {
                       const qrData = generateCompleteQRData();
                       if (!qrData) {
                         return (
                           <View style={styles.qrErrorContainer}>
-                            <Ionicons
-                              name="alert-circle"
-                              size={32}
-                              color="#FF6B6B"
-                            />
-                            <ThemedText style={styles.qrErrorText}>
-                              Error generando QR
-                            </ThemedText>
+                            <Ionicons name="alert-circle" size={32} color="#FF6B6B" />
+                            <ThemedText style={styles.qrErrorText}>Error generando QR</ThemedText>
                           </View>
                         );
                       }
-                      // return (
-                      //   <QRCode
-                      //     value={qrData}
-                      //     size={200}
-                      //     backgroundColor="white"
-                      //     color="black"
-                      //   />
-                      // );
+                      return (
+                        <QRCode
+                          value={qrData}
+                          size={200}
+                          backgroundColor="white"
+                          color="black"
+                        />
+                      );
                     } catch (error) {
-                      console.error("QR Code render error:", error);
+                      console.error('QR Code render error:', error);
                       return (
                         <View style={styles.qrErrorContainer}>
-                          <Ionicons
-                            name="alert-circle"
-                            size={32}
-                            color="#FF6B6B"
-                          />
-                          <ThemedText style={styles.qrErrorText}>
-                            Error QR
-                          </ThemedText>
+                          <Ionicons name="alert-circle" size={32} color="#FF6B6B" />
+                          <ThemedText style={styles.qrErrorText}>Error QR</ThemedText>
                         </View>
                       );
                     }
                   })()}
+                  */}
+
+                  {/* Temporary placeholder for QR */}
+                  <View style={styles.qrErrorContainer}>
+                    <Ionicons name="qr-code" size={64} color="#ccc" />
+                    <ThemedText style={[styles.qrErrorText, { color: "#999" }]}>
+                      QR Deshabilitado
+                    </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.qrErrorText,
+                        { color: "#999", fontSize: 10 },
+                      ]}
+                    >
+                      Temporalmente
+                    </ThemedText>
+                  </View>
                 </View>
 
                 <View style={styles.addressTextContainer}>
@@ -841,6 +1008,28 @@ export default function CryptoDetailsScreen() {
                   onPress={handleRefreshAddress}
                   style={styles.bottomButton}
                 />
+
+                {/* DEBUG: Only show in development */}
+                <>
+                  {/* <ThemedButton
+                    title="🔍 Debug: Info Cache"
+                    type="outline"
+                    onPress={handleDebugCache}
+                    style={[
+                      styles.bottomButton,
+                      { backgroundColor: "rgba(255, 193, 7, 0.1)" },
+                    ]}
+                  />
+                  <ThemedButton
+                    title="🧹 Debug: Limpiar Cache"
+                    type="outline"
+                    onPress={handleDebugClearCache}
+                    style={[
+                      styles.bottomButton,
+                      { backgroundColor: "rgba(220, 53, 69, 0.1)" },
+                    ]}
+                  /> */}
+                </>
               </View>
             </>
           )}

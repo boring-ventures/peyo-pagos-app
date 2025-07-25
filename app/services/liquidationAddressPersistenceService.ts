@@ -36,6 +36,19 @@ export const liquidationAddressPersistenceService = {
   ): Promise<{ success: boolean; data?: LiquidationAddressRecord; error?: string }> => {
     try {
       console.log(`💾 Saving liquidation address ${bridgeLiquidationAddress.id} to Supabase`);
+      console.log('📊 Debug save parameters:', {
+        profileId,
+        customerId,
+        bridgeLiquidationId: bridgeLiquidationAddress.id,
+        chain: bridgeLiquidationAddress.chain,
+        address: bridgeLiquidationAddress.address,
+        currency: bridgeLiquidationAddress.currency,
+        walletId
+      });
+
+      // Use the walletId directly (it's already the Supabase wallet.id)
+      console.log(`📝 Using wallet.id: ${walletId || 'null'}`);
+      const finalWalletId = walletId || null;
 
       const now = new Date().toISOString();
       const recordId = createId(); // Generate unique ID using cuid2
@@ -56,10 +69,11 @@ export const liquidationAddressPersistenceService = {
         state: bridgeLiquidationAddress.state || 'active',
         bridge_created_at: bridgeLiquidationAddress.created_at,
         bridge_updated_at: bridgeLiquidationAddress.updated_at,
-        wallet_id: walletId || null,
+        wallet_id: walletId,
       };
 
       console.log('📝 Inserting record with ID:', recordId);
+      console.log('📝 Complete record to insert:', JSON.stringify(record, null, 2));
 
       const { data, error } = await supabase
         .from('liquidation_addresses')
@@ -70,6 +84,7 @@ export const liquidationAddressPersistenceService = {
       if (error) {
         console.error('❌ Error saving liquidation address:', error);
         console.error('📝 Record being inserted:', record);
+        console.error('📝 Supabase error details:', JSON.stringify(error, null, 2));
         return {
           success: false,
           error: `Failed to save: ${error.message}`,
@@ -77,12 +92,14 @@ export const liquidationAddressPersistenceService = {
       }
 
       console.log('✅ Liquidation address saved successfully with ID:', recordId);
+      console.log('✅ Supabase returned data:', JSON.stringify(data, null, 2));
       return {
         success: true,
         data: data as LiquidationAddressRecord,
       };
     } catch (error) {
       console.error('💥 Exception saving liquidation address:', error);
+      console.error('💥 Exception details:', error instanceof Error ? error.stack : error);
       return {
         success: false,
         error: `Exception: ${error instanceof Error ? error.message : 'Unknown error'}`,

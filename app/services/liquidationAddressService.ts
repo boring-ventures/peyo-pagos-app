@@ -31,7 +31,8 @@ export const liquidationAddressService = {
     customerId: string,
     userWalletAddress: string,
     chain: string,
-    currency: string
+    currency: string,
+    walletId?: string
   ): Promise<{
     success: boolean;
     data?: LiquidationAddressData;
@@ -40,7 +41,7 @@ export const liquidationAddressService = {
   }> => {
     try {
       console.log(`🔄 Getting or creating liquidation address for ${chain}/${currency}`);
-      console.log(`📝 Parameters: profileId=${profileId}, customerId=${customerId}, wallet=${userWalletAddress}`);
+      console.log(`📝 Parameters: profileId=${profileId}, customerId=${customerId}, wallet=${userWalletAddress}, walletId=${walletId}`);
 
       const destinationPaymentRail = chain; // Same as chain for crypto-to-crypto
       const destinationCurrency = currency; // Same currency
@@ -55,6 +56,8 @@ export const liquidationAddressService = {
         destinationPaymentRail,
         destinationCurrency
       );
+
+      console.log('📊 Supabase check result:', existingResult);
 
       if (!existingResult.success) {
         console.error('❌ Failed to check existing addresses in Supabase:', existingResult.error);
@@ -98,12 +101,20 @@ export const liquidationAddressService = {
             'inactive'
           );
         }
+      } else {
+        console.log('ℹ️ No existing liquidation address found in Supabase');
       }
 
       // Step 2: Check Bridge directly for existing addresses
       console.log('🔍 Step 2: Checking Bridge for existing liquidation addresses');
       const bridgeLiquidationsResult = await bridgeService.getLiquidationAddresses(customerId);
       
+      console.log('📊 Bridge liquidations result:', {
+        success: bridgeLiquidationsResult.success,
+        dataLength: bridgeLiquidationsResult.data?.length || 0,
+        error: bridgeLiquidationsResult.error
+      });
+
       if (bridgeLiquidationsResult.success && bridgeLiquidationsResult.data) {
         // Look for matching address with our criteria
         const matchingAddress = bridgeLiquidationsResult.data.find((addr: BridgeLiquidationAddress) => 
@@ -114,20 +125,38 @@ export const liquidationAddressService = {
           addr.state === 'active'
         );
 
+        console.log('📊 Matching address search result:', {
+          found: !!matchingAddress,
+          matchingAddressId: matchingAddress?.id,
+          searchCriteria: { chain, currency, destinationPaymentRail, destinationCurrency }
+        });
+
         if (matchingAddress) {
           console.log('✅ Found existing liquidation address in Bridge:', matchingAddress.id);
           
           // Save to Supabase for future reference
           console.log('💾 Saving existing Bridge address to Supabase');
+          console.log('💾 About to call saveLiquidationAddress with:', {
+            profileId,
+            customerId,
+            bridgeLiquidationId: matchingAddress.id,
+            userWalletAddress,
+            walletId
+          });
+          
           const saveResult = await liquidationAddressPersistenceService.saveLiquidationAddress(
             profileId,
             customerId,
             matchingAddress,
-            userWalletAddress
+            walletId
           );
 
+          console.log('📊 Save result:', saveResult);
+
           if (!saveResult.success) {
-            console.warn('⚠️ Failed to save existing liquidation address to Supabase:', saveResult.error);
+            console.error('❌ CRITICAL: Failed to save existing liquidation address to Supabase:', saveResult.error);
+            // Still return success but mark as warning
+            console.warn('⚠️ Continuing without Supabase persistence - this may cause cache issues');
           } else {
             console.log('✅ Successfully saved existing Bridge address to Supabase');
           }
@@ -148,6 +177,8 @@ export const liquidationAddressService = {
             },
             isNewAddress: false,
           };
+        } else {
+          console.log('ℹ️ No matching liquidation address found in Bridge with our criteria');
         }
       }
 
@@ -165,6 +196,12 @@ export const liquidationAddressService = {
       console.log('📤 Creating with params:', createParams);
       const createResult = await bridgeService.createLiquidationAddress(customerId, createParams);
 
+      console.log('📊 Create result:', {
+        success: createResult.success,
+        dataId: createResult.data?.id,
+        error: createResult.error
+      });
+
       if (!createResult.success || !createResult.data) {
         console.error('❌ Failed to create liquidation address in Bridge:', createResult.error);
         return {
@@ -177,15 +214,28 @@ export const liquidationAddressService = {
 
       // Save to Supabase
       console.log('💾 Saving new Bridge address to Supabase');
+      console.log('💾 About to call saveLiquidationAddress with new address:', {
+        profileId,
+        customerId,
+        bridgeLiquidationId: createResult.data.id,
+        userWalletAddress,
+        walletId
+      });
+      
       const saveResult = await liquidationAddressPersistenceService.saveLiquidationAddress(
         profileId,
         customerId,
         createResult.data,
-        userWalletAddress
+        walletId
       );
 
+      console.log('📊 Save new result:', saveResult);
+
       if (!saveResult.success) {
-        console.warn('⚠️ Failed to save new liquidation address to Supabase:', saveResult.error);
+        console.error('❌ CRITICAL: Failed to save new liquidation address to Supabase:', saveResult.error);
+        console.error('❌ This will cause cache inconsistency issues');
+        // Still return success but mark as warning
+        console.warn('⚠️ Continuing without Supabase persistence - this may cause cache issues');
       } else {
         console.log('✅ Successfully saved new Bridge address to Supabase');
       }
@@ -208,6 +258,7 @@ export const liquidationAddressService = {
       };
     } catch (error) {
       console.error('💥 Exception in getOrCreateDepositAddress:', error);
+      console.error('💥 Exception details:', error instanceof Error ? error.stack : error);
       return {
         success: false,
         error: `Exception: ${error instanceof Error ? error.message : 'Unknown error'}`,
