@@ -310,6 +310,7 @@ export default function HomeScreen() {
                   styles.actionButton,
                   { backgroundColor: cardColor, borderColor },
                 ]}
+                onPress={() => router.push('/(private)/cards' as any)}
                 activeOpacity={0.8}
               >
                 <Ionicons
