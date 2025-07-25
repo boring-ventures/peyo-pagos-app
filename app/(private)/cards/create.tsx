@@ -1,4 +1,4 @@
-import { CardCreation } from '@/app/components/cards';
+import { BackButton, CardCreation } from '@/app/components/cards';
 import { ThemedView } from '@/app/components/ThemedView';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
 import { useRouter } from 'expo-router';
@@ -16,9 +16,18 @@ export default function CreateCardScreen() {
     router.push(`/(private)/cards/${cardId}` as any);
   };
 
+  const handleGoBack = () => {
+    router.dismiss(); // Use dismiss for modal navigation
+  };
+
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <BackButton 
+          title="Cancelar" 
+          onPress={handleGoBack}
+          style={styles.backButton}
+        />
         <CardCreation onCardCreated={handleCardCreated} style={styles.cardCreation} />
       </SafeAreaView>
     </ThemedView>
@@ -31,10 +40,14 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  backButton: {
+    marginTop: 8,
+  },
   cardCreation: {
+    flex: 1,
+    justifyContent: 'center',
     alignSelf: 'center',
   },
 }); 

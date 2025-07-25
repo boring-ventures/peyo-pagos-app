@@ -1,4 +1,4 @@
-import { CardDisplay, CardError, CardLoading } from '@/app/components/cards';
+import { BackButton, CardDisplay, CardError, CardLoading } from '@/app/components/cards';
 import { ThemedButton } from '@/app/components/ThemedButton';
 import { ThemedText } from '@/app/components/ThemedText';
 import { ThemedView } from '@/app/components/ThemedView';
@@ -110,6 +110,7 @@ export default function CardDetailsScreen() {
     return (
       <ThemedView style={[styles.container, { backgroundColor }]}>
         <SafeAreaView style={styles.safeArea}>
+          <BackButton style={styles.backButton} />
           <View style={styles.loadingContainer}>
             <CardLoading message="Cargando detalles de la tarjeta..." />
           </View>
@@ -122,6 +123,7 @@ export default function CardDetailsScreen() {
     return (
       <ThemedView style={[styles.container, { backgroundColor }]}>
         <SafeAreaView style={styles.safeArea}>
+          <BackButton style={styles.backButton} />
           <View style={styles.errorContainer}>
             <CardError 
               error={error || 'Tarjeta no encontrada'} 
@@ -151,6 +153,9 @@ export default function CardDetailsScreen() {
             />
           }
         >
+          {/* Back Button */}
+          <BackButton style={styles.backButton} />
+
           {/* Card Display */}
           <CardDisplay
             card={currentCard}
@@ -280,6 +285,10 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+  },
+  backButton: {
+    paddingHorizontal: 20,
+    marginTop: 8,
   },
   scrollView: {
     flex: 1,

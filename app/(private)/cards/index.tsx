@@ -1,4 +1,5 @@
 import {
+  BackButton,
   CardCreation,
   CardDisplay,
   CardError,
@@ -73,6 +74,7 @@ export default function CardsScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
+          <BackButton style={styles.backButton} />
           <View style={styles.loadingContainer}>
             <CardLoading message="Cargando tus tarjetas..." />
           </View>
@@ -85,6 +87,7 @@ export default function CardsScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
+          <BackButton style={styles.backButton} />
           <View style={styles.errorContainer}>
             <CardError
               error={error}
@@ -113,6 +116,9 @@ export default function CardsScreen() {
           />
         }
       >
+        {/* Back Button */}
+        <BackButton style={styles.backButton} />
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTextContainer}>
@@ -203,6 +209,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 32,
+  },
+  backButton: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
   loadingContainer: {
     flex: 1,
