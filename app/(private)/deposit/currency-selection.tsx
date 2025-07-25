@@ -5,10 +5,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -52,8 +52,15 @@ export default function CurrencySelectionScreen() {
     if (option.id === "bolivianos") {
       router.push("/(private)/deposit/bolivianos-form");
     } else {
-      // Navigate to crypto selection
-      router.push("/(private)/deposit/crypto-selection");
+      // Skip crypto-selection since only USDC is supported
+      // Go directly to network selection
+      router.push({
+        pathname: "/(private)/deposit/network-selection",
+        params: {
+          cryptoType: "usdc",
+          cryptoName: "USDC",
+        },
+      });
     }
   };
 

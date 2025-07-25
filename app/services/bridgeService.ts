@@ -7,8 +7,10 @@ import {
   BridgeCustomerRequest,
   BridgeDocumentType,
   BridgeGetCustomerResponse,
+  BridgeLiquidationAddress,
   BridgeTosLinkResponse,
   BridgeTosResponse,
+  CreateLiquidationAddressParams,
   KycProfileForBridge
 } from "../types/BridgeTypes";
 
@@ -1057,6 +1059,150 @@ export const bridgeService = {
    */
   isConfigured: (): boolean => {
     return !!BRIDGE_API_KEY && !!BRIDGE_API_URL;
+  },
+
+  /**
+   * Create a liquidation address for crypto deposits
+   * POST /customers/{customerId}/liquidation_addresses
+   */
+  createLiquidationAddress: async (
+    customerId: string,
+    params: CreateLiquidationAddressParams
+  ): Promise<{
+    success: boolean;
+    data?: BridgeLiquidationAddress;
+    error?: string;
+  }> => {
+    try {
+      console.log(`📡 Bridge API: Creating liquidation address for customer ${customerId}`);
+      console.log(`📡 Parameters:`, params);
+
+      const response = await fetch(`${BRIDGE_API_URL}/customers/${customerId}/liquidation_addresses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Api-Key': BRIDGE_API_KEY,
+          'Idempotency-Key': `liquidation-${customerId}-${Date.now()}`,
+        },
+        body: JSON.stringify(params),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Bridge API: Failed to create liquidation address:', response.status, responseData);
+        return {
+          success: false,
+          error: responseData.message || `HTTP ${response.status}: ${response.statusText}`,
+        };
+      }
+
+      console.log('✅ Bridge API: Liquidation address created successfully:', responseData);
+      return {
+        success: true,
+        data: responseData,
+      };
+    } catch (error) {
+      console.error('❌ Bridge API: Error creating liquidation address:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  },
+
+  /**
+   * Get all liquidation addresses for a customer
+   * GET /customers/{customerId}/liquidation_addresses
+   */
+  getLiquidationAddresses: async (customerId: string): Promise<{
+    success: boolean;
+    data?: BridgeLiquidationAddress[];
+    error?: string;
+  }> => {
+    try {
+      console.log(`📡 Bridge API: Getting liquidation addresses for customer ${customerId}`);
+
+      const response = await fetch(`${BRIDGE_API_URL}/customers/${customerId}/liquidation_addresses`, {
+        method: 'GET',
+        headers: {
+          'Api-Key': BRIDGE_API_KEY,
+          'accept': 'application/json',
+        },
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Bridge API: Failed to get liquidation addresses:', response.status, responseData);
+        return {
+          success: false,
+          error: responseData.message || `HTTP ${response.status}: ${response.statusText}`,
+        };
+      }
+
+      console.log(`✅ Bridge API: Retrieved ${responseData.data?.length || 0} liquidation addresses`);
+      return {
+        success: true,
+        data: responseData.data || [],
+      };
+    } catch (error) {
+      console.error('❌ Bridge API: Error getting liquidation addresses:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  },
+
+  /**
+   * Get specific liquidation address
+   * GET /customers/{customerId}/liquidation_addresses/{liquidationId}
+   */
+  getLiquidationAddress: async (
+    customerId: string, 
+    liquidationId: string
+  ): Promise<{
+    success: boolean;
+    data?: BridgeLiquidationAddress;
+    error?: string;
+  }> => {
+    try {
+      console.log(`📡 Bridge API: Getting liquidation address ${liquidationId} for customer ${customerId}`);
+
+      const response = await fetch(
+        `${BRIDGE_API_URL}/customers/${customerId}/liquidation_addresses/${liquidationId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Api-Key': BRIDGE_API_KEY,
+            'accept': 'application/json',
+          },
+        }
+      );
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Bridge API: Failed to get liquidation address:', response.status, responseData);
+        return {
+          success: false,
+          error: responseData.message || `HTTP ${response.status}: ${response.statusText}`,
+        };
+      }
+
+      console.log('✅ Bridge API: Retrieved liquidation address:', responseData);
+      return {
+        success: true,
+        data: responseData,
+      };
+    } catch (error) {
+      console.error('❌ Bridge API: Error getting liquidation address:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
   },
 
   /**

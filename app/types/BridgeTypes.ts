@@ -259,4 +259,33 @@ export interface BridgeTransactionQueryOptions {
   status?: BridgeTransaction['status'];
   type?: BridgeTransaction['type'];
   currency?: string;
+}
+
+// Liquidation Address Types
+export interface BridgeLiquidationAddress {
+  id: string;
+  chain: 'solana' | 'ethereum' | 'polygon' | 'stellar';
+  currency: 'usdc' | 'usdt' | 'usdb';
+  address: string; // The address users send crypto to
+  destination_payment_rail: 'solana' | 'ethereum' | 'polygon' | 'wire' | 'ach' | 'sepa';
+  destination_currency: 'usdc' | 'usdt' | 'usdb' | 'usd' | 'eur';
+  destination_address?: string; // For crypto destinations (Bridge wallet address)
+  external_account_id?: string; // For fiat destinations
+  destination_wire_message?: string;
+  destination_sepa_reference?: string;
+  blockchain_memo?: string; // For memo-based chains like Stellar
+  custom_developer_fee_percent?: string;
+  created_at: string;
+  updated_at: string;
+  state?: 'active' | 'inactive';
+}
+
+// Liquidation Address Creation Parameters
+export interface CreateLiquidationAddressParams {
+  chain: 'solana' | 'ethereum' | 'polygon';
+  currency: 'usdc' | 'usdt' | 'usdb';
+  destination_payment_rail: 'solana' | 'ethereum' | 'polygon';
+  destination_currency: 'usdc' | 'usdt' | 'usdb';
+  destination_address: string; // Bridge wallet address
+  custom_developer_fee_percent?: string;
 } 

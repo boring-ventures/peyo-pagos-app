@@ -1,20 +1,25 @@
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
+import { liquidationAddressService } from "@/app/services/liquidationAddressService";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface NetworkOption {
   id: string;
-  title: string;
+  name: string;
+  displayName: string;
+  chain: string;
+  supportedCurrencies: string[];
   icon: string;
   iconColor: string;
   backgroundColor: string;
@@ -31,29 +36,49 @@ export default function NetworkSelectionScreen() {
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
 
-  // Get crypto data from navigation params
-  const cryptoType = (params.cryptoType as string) || "usdt";
-  const cryptoName = (params.cryptoName as string) || "USDT";
+  // Since crypto-selection is bypassed, we only support USDC
+  const cryptoType = "usdc";
+  const cryptoName = "USDC";
 
-  // Network options with selection state
-  const [networkOptions, setNetworkOptions] = useState<NetworkOption[]>([
-    {
-      id: "polygon",
-      title: "Polygon POS",
-      icon: "$",
-      iconColor: "#FFFFFF",
-      backgroundColor: "#8247E5",
-      selected: false,
-    },
-    {
-      id: "solana",
-      title: "Solana",
-      icon: "€",
-      iconColor: "#FFFFFF",
-      backgroundColor: "#9945FF",
-      selected: true, // Default selected
-    },
-  ]);
+  // Network options state
+  const [networkOptions, setNetworkOptions] = useState<NetworkOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load supported networks from Bridge.xyz
+  useEffect(() => {
+    const loadSupportedNetworks = () => {
+      try {
+        console.log('🌐 Loading supported networks from Bridge.xyz');
+        
+        const supportedNetworks = liquidationAddressService.getSupportedNetworks();
+        
+        // Filter networks that support USDC and convert to NetworkOption format
+        const networkOptionsWithSelection = supportedNetworks
+          .filter(network => network.supportedCurrencies.includes('usdc'))
+          .map((network, index) => ({
+            id: network.id,
+            name: network.name,
+            displayName: network.displayName,
+            chain: network.chain,
+            supportedCurrencies: network.supportedCurrencies,
+            icon: network.icon,
+            iconColor: network.iconColor,
+            backgroundColor: network.backgroundColor,
+            selected: network.id === 'solana', // Default to Solana
+          }));
+
+        setNetworkOptions(networkOptionsWithSelection);
+        setIsLoading(false);
+        
+        console.log(`✅ Loaded ${networkOptionsWithSelection.length} supported networks`);
+      } catch (error) {
+        console.error('❌ Error loading supported networks:', error);
+        setIsLoading(false);
+      }
+    };
+
+    loadSupportedNetworks();
+  }, []);
 
   const handleNetworkSelect = (selectedNetwork: NetworkOption) => {
     // Update selection state
@@ -63,6 +88,8 @@ export default function NetworkSelectionScreen() {
     }));
     setNetworkOptions(updatedOptions);
 
+    console.log(`🔗 Selected network: ${selectedNetwork.displayName} (${selectedNetwork.chain})`);
+
     // Navigate to crypto deposit details
     router.push({
       pathname: "/(private)/deposit/crypto-details",
@@ -70,7 +97,8 @@ export default function NetworkSelectionScreen() {
         cryptoType,
         cryptoName,
         networkType: selectedNetwork.id,
-        networkName: selectedNetwork.title,
+        networkName: selectedNetwork.displayName,
+        chain: selectedNetwork.chain,
       },
     });
   };
@@ -78,6 +106,21 @@ export default function NetworkSelectionScreen() {
   const handleBackPress = () => {
     router.back();
   };
+
+  if (isLoading) {
+    return (
+      <ThemedView style={{ flex: 1, backgroundColor }}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={tintColor} />
+            <ThemedText style={styles.loadingText}>
+              Cargando redes disponibles...
+            </ThemedText>
+          </View>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={{ flex: 1, backgroundColor }}>
@@ -97,12 +140,12 @@ export default function NetworkSelectionScreen() {
             </TouchableOpacity>
             <View style={styles.headerContent}>
               <ThemedText style={styles.headerTitle}>
-                Depositar Crypto
+                Depositar {cryptoName}
               </ThemedText>
               <ThemedText
                 style={[styles.headerSubtitle, { color: subtextColor }]}
               >
-                Selecciona la red
+                Selecciona la red blockchain
               </ThemedText>
             </View>
           </View>
@@ -113,7 +156,7 @@ export default function NetworkSelectionScreen() {
               {cryptoName}
             </ThemedText>
             <ThemedText style={[styles.cryptoSubtitle, { color: subtextColor }]}>
-              Selecciona la red para continuar
+              Estas son todas las redes disponibles en Bridge.xyz para recibir {cryptoName}
             </ThemedText>
           </View>
 
@@ -156,7 +199,15 @@ export default function NetworkSelectionScreen() {
                         { color: option.selected ? "white" : textColor }
                       ]}
                     >
-                      {option.title}
+                      {option.displayName}
+                    </ThemedText>
+                    <ThemedText 
+                      style={[
+                        styles.networkSubtitle,
+                        { color: option.selected ? "rgba(255,255,255,0.8)" : subtextColor }
+                      ]}
+                    >
+                      Soporta: {option.supportedCurrencies.map(c => c.toUpperCase()).join(", ")}
                     </ThemedText>
                   </View>
                   {option.selected && (
@@ -168,6 +219,28 @@ export default function NetworkSelectionScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* Help Text */}
+          <View style={styles.helpContainer}>
+            <View style={styles.helpItem}>
+              <Ionicons name="information-circle-outline" size={20} color={subtextColor} />
+              <ThemedText style={[styles.helpText, { color: subtextColor }]}>
+                Cada red tiene diferentes tiempos de confirmación y comisiones
+              </ThemedText>
+            </View>
+            <View style={styles.helpItem}>
+              <Ionicons name="time-outline" size={20} color={subtextColor} />
+              <ThemedText style={[styles.helpText, { color: subtextColor }]}>
+                Solana es la más rápida (1-3 min), Ethereum puede tomar más tiempo
+              </ThemedText>
+            </View>
+            <View style={styles.helpItem}>
+              <Ionicons name="warning-outline" size={20} color={subtextColor} />
+              <ThemedText style={[styles.helpText, { color: subtextColor }]}>
+                Verifica siempre que seleccionas la red correcta en tu exchange
+              </ThemedText>
+            </View>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -177,6 +250,17 @@ export default function NetworkSelectionScreen() {
 const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 32,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
   },
   headerContainer: {
     flexDirection: "row",
@@ -216,12 +300,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cryptoSubtitle: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
   },
   optionsContainer: {
     paddingHorizontal: 20,
     gap: 16,
+    marginBottom: 32,
   },
   networkCard: {
     borderRadius: 16,
@@ -251,8 +336,27 @@ const styles = StyleSheet.create({
   networkTitle: {
     fontSize: 18,
     fontWeight: "600",
+    marginBottom: 4,
+  },
+  networkSubtitle: {
+    fontSize: 14,
+    fontWeight: "400",
   },
   selectionIndicator: {
     marginLeft: 12,
+  },
+  helpContainer: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  helpItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  helpText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
 }); 
