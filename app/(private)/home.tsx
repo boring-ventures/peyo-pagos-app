@@ -4,12 +4,15 @@ import { ThemedView } from "@/app/components/ThemedView";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
 import { bridgeStatusService } from "@/app/services/bridgeStatusService";
 import { useAuthStore } from "@/app/store/authStore";
+import { useWalletBalanceStore } from "@/app/store/walletBalanceStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,24 +21,32 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const PEYO_ID = "123456";
-const BALANCE = "5 200,00 USDC";
-
 const virtualAccounts = [
   { name: "USA", flag: "🇺🇸", bg: "#4A90E2" },
   { name: "Europa", flag: "🇪🇺", bg: "#4A90E2" },
   { name: "México", flag: "🇲🇽", bg: "#4A90E2" },
 ];
 
-const transfers = [
-  { name: "Amanda", flag: "🇺🇸", amount: "+300.00 USDC", positive: true },
-  { name: "Diego", flag: "🇪🇺", amount: "-150.00 USDC", positive: false },
-  { name: "Gabriela", flag: "🇧🇷", amount: "-1 200.00 USDC", positive: false },
-];
-
 export default function HomeScreen() {
-  const { user } = useAuthStore();
+  const { user, profile, isAuthenticated, userTag, loadUserTag } = useAuthStore();
+  const {
+    balanceData,
+    transactions,
+    isLoadingBalance,
+    isLoadingTransactions,
+    balanceError,
+    transactionError,
+    loadBalance,
+    loadTransactions,
+    refreshAll,
+    clearBalanceError,
+    clearTransactionError,
+  } = useWalletBalanceStore();
+  
   const [isCheckingWallets, setIsCheckingWallets] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [bridgeCustomerId, setBridgeCustomerId] = useState<string | null>(null);
+  
   const textColor = useThemeColor({}, "text");
   const subtextColor = useThemeColor({}, "textSecondary");
   const cardColor = useThemeColor({}, "card");
@@ -46,6 +57,13 @@ export default function HomeScreen() {
   const tintColor = useThemeColor({}, "tint");
   const balanceTextColor = useThemeColor({}, "text");
   const router = useRouter();
+
+  // Load user tag on mount
+  useEffect(() => {
+    if (user && !userTag) {
+      loadUserTag();
+    }
+  }, [user, userTag, loadUserTag]);
 
   // Verificar estado de Bridge y crear wallets si es necesario
   useEffect(() => {
@@ -68,6 +86,9 @@ export default function HomeScreen() {
             `💳 Bridge reporta ${bridgeResult.walletCount || 0} wallets`
           );
 
+          const customerId = bridgeResult.bridgeCustomerId;
+          setBridgeCustomerId(customerId || null);
+
           // 2. Solo crear wallet si Bridge no tiene ninguna
           if (bridgeResult.walletCount === 0) {
             console.log(
@@ -80,7 +101,7 @@ export default function HomeScreen() {
             const createResult = await createWallet({
               chain: "solana",
               currency: "usdc",
-              customerId: bridgeResult.bridgeCustomerId || "",
+              customerId: customerId || "",
               bridgeTags: ["default"],
             });
 
@@ -100,6 +121,14 @@ export default function HomeScreen() {
             const { loadUserWallets } = useAuthStore.getState();
             await loadUserWallets();
           }
+
+          // 4. Load balance and transaction data if we have a Bridge customer ID
+          if (customerId) {
+            await Promise.all([
+              loadBalance(customerId),
+              loadTransactions(customerId, 3),
+            ]);
+          }
         } else {
           console.log(
             "⚠️ Usuario no está aprobado o hay error:",
@@ -114,10 +143,37 @@ export default function HomeScreen() {
     };
 
     checkUserStatusAndWallets();
-  }, [user]);
+  }, [user, loadBalance, loadTransactions]);
 
-  const handleCopy = () => {
-    Clipboard.setStringAsync(PEYO_ID);
+  // Pull to refresh handler
+  const onRefresh = useCallback(async () => {
+    if (!user) return;
+    
+    setRefreshing(true);
+    
+    try {
+      if (bridgeCustomerId) {
+        // Use the store's refresh method for better state management
+        await refreshAll(bridgeCustomerId);
+      } else {
+        // Fallback: re-check Bridge status and load data
+        const bridgeResult = await bridgeStatusService.checkAndUpdateBridgeStatus(user.id);
+        
+        if (bridgeResult.success && bridgeResult.bridgeCustomerId) {
+          setBridgeCustomerId(bridgeResult.bridgeCustomerId);
+          await refreshAll(bridgeResult.bridgeCustomerId);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user, bridgeCustomerId, refreshAll]);
+
+  const handleCopy = async () => {
+    const copyText = userTag || profile?.user_tag || "No ID available";
+    await Clipboard.setStringAsync(copyText);
     Alert.alert("Copiado", "PEYO ID copiado al portapapeles");
   };
 
@@ -125,12 +181,37 @@ export default function HomeScreen() {
     router.push("/(private)/deposit/currency-selection");
   };
 
+  const handleBalanceErrorRetry = () => {
+    clearBalanceError();
+    if (bridgeCustomerId) {
+      loadBalance(bridgeCustomerId, true);
+    }
+  };
+
+  const handleTransactionErrorRetry = () => {
+    clearTransactionError();
+    if (bridgeCustomerId) {
+      loadTransactions(bridgeCustomerId, 3, true);
+    }
+  };
+
+  // Get display values
+  const displayBalance = balanceData?.formattedBalance || "0,00 USDC";
+  const displayPeyoId = userTag || profile?.user_tag || "Loading...";
+
   return (
     <ThemedView style={{ flex: 1, backgroundColor: cardColor }}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              tintColor={tintColor}
+            />
+          }
         >
           {/* Header */}
           <View style={styles.headerContainer}>
@@ -140,7 +221,7 @@ export default function HomeScreen() {
                 <ThemedText
                   style={[styles.headerSubtitle, { color: subtextColor }]}
                 >
-                  PEYO ID: {PEYO_ID}
+                  PEYO ID: {displayPeyoId}
                 </ThemedText>
               </View>
             </View>
@@ -155,11 +236,37 @@ export default function HomeScreen() {
 
           {/* Balance */}
           <View style={styles.balanceContainer}>
-            <ThemedText
-              style={[styles.balanceText, { color: balanceTextColor }]}
-            >
-              {BALANCE}
-            </ThemedText>
+            {isLoadingBalance ? (
+              <View style={styles.balanceLoadingContainer}>
+                <ActivityIndicator size="small" color={tintColor} />
+                <ThemedText style={[styles.balanceLoadingText, { color: subtextColor }]}>
+                  Cargando balance...
+                </ThemedText>
+              </View>
+            ) : balanceError ? (
+              <TouchableOpacity 
+                onPress={handleBalanceErrorRetry}
+                style={styles.balanceErrorContainer}
+              >
+                <ThemedText style={[styles.balanceErrorText, { color: errorColor }]}>
+                  Error cargando balance
+                </ThemedText>
+                <ThemedText style={[styles.balanceRetryText, { color: subtextColor }]}>
+                  Toca para reintentar
+                </ThemedText>
+              </TouchableOpacity>
+            ) : (
+              <ThemedText
+                style={[styles.balanceText, { color: balanceTextColor }]}
+              >
+                {displayBalance}
+              </ThemedText>
+            )}
+            {balanceData?.lastUpdated && (
+              <ThemedText style={[styles.lastUpdatedText, { color: subtextColor }]}>
+                Actualizado: {new Date(balanceData.lastUpdated).toLocaleTimeString()}
+              </ThemedText>
+            )}
           </View>
 
           {/* Action Buttons Row */}
@@ -241,25 +348,45 @@ export default function HomeScreen() {
 
           {/* Recent Transfers */}
           <View style={styles.sectionContainer}>
-            <ThemedText style={styles.sectionTitle}>
-              Transferencias recientes
-            </ThemedText>
-            <View style={styles.transfersList}>
-              {transfers.map((t, idx) => (
-                <View key={t.name} style={styles.transferItem}>
-                  <Text style={styles.transferFlag}>{t.flag}</Text>
-                  <ThemedText style={styles.transferName}>{t.name}</ThemedText>
-                  <ThemedText
-                    style={[
-                      styles.transferAmount,
-                      { color: t.positive ? successColor : errorColor },
-                    ]}
-                  >
-                    {t.amount}
-                  </ThemedText>
-                </View>
-              ))}
+            <View style={styles.sectionHeaderRow}>
+              <ThemedText style={styles.sectionTitle}>
+                Transferencias recientes
+              </ThemedText>
+              {isLoadingTransactions && (
+                <ActivityIndicator size="small" color={tintColor} />
+              )}
             </View>
+            
+            {transactionError ? (
+              <TouchableOpacity 
+                onPress={handleTransactionErrorRetry}
+                style={styles.transactionErrorContainer}
+              >
+                <ThemedText style={[styles.transactionErrorText, { color: errorColor }]}>
+                  Error cargando transacciones
+                </ThemedText>
+                <ThemedText style={[styles.transactionRetryText, { color: subtextColor }]}>
+                  Toca para reintentar
+                </ThemedText>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.transfersList}>
+                {transactions.map((t, idx) => (
+                  <View key={t.id} style={styles.transferItem}>
+                    <Text style={styles.transferFlag}>{t.flagIcon}</Text>
+                    <ThemedText style={styles.transferName}>{t.counterparty}</ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.transferAmount,
+                        { color: t.positive ? successColor : errorColor },
+                      ]}
+                    >
+                      {t.amount}
+                    </ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -310,6 +437,30 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#0B1E3D",
   },
+  balanceLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  balanceLoadingText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  balanceErrorContainer: {
+    alignItems: "center",
+  },
+  balanceErrorText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  balanceRetryText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  lastUpdatedText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
   actionContainer: {
     marginHorizontal: 20,
   },
@@ -348,6 +499,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
+    marginBottom: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   accountsRow: {
@@ -401,5 +558,17 @@ const styles = StyleSheet.create({
   transferAmount: {
     fontSize: 16,
     fontWeight: "700",
+  },
+  transactionErrorContainer: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  transactionErrorText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  transactionRetryText: {
+    fontSize: 12,
+    marginTop: 4,
   },
 });

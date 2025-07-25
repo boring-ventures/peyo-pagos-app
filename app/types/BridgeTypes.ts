@@ -189,3 +189,74 @@ export interface BridgeGetCustomerResponse extends BridgeServiceResponse<BridgeC
 export interface BridgeCreateWalletResponse extends BridgeServiceResponse<BridgeWallet> {}
 export interface BridgeGetWalletsResponse extends BridgeServiceResponse<BridgeWallet[]> {}
 export interface BridgeTosLinkResponse extends BridgeServiceResponse<BridgeTosResponse> {} 
+
+// Bridge Transaction Types
+export interface BridgeTransaction {
+  id: string;
+  type: 'deposit' | 'withdrawal' | 'transfer' | 'exchange';
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  amount: string;
+  currency: string;
+  description?: string;
+  from?: {
+    type: 'wallet' | 'external';
+    address?: string;
+    name?: string;
+  };
+  to?: {
+    type: 'wallet' | 'external';
+    address?: string;
+    name?: string;
+  };
+  fee?: {
+    amount: string;
+    currency: string;
+  };
+  created_at: string; // ISO 8601 timestamp
+  updated_at: string; // ISO 8601 timestamp
+  confirmed_at?: string; // ISO 8601 timestamp
+  blockchain_tx_id?: string; // Blockchain transaction hash
+  metadata?: Record<string, any>;
+}
+
+// Bridge Wallet with Balance (extended)
+export interface BridgeWalletWithBalance extends BridgeWallet {
+  balance: string;
+  available_balance?: string;
+  pending_balance?: string;
+  balances?: Array<{
+    currency: string;
+    balance: string;
+    available_balance?: string;
+    pending_balance?: string;
+  }>;
+}
+
+// Bridge API Response Types for new endpoints
+export interface BridgeGetWalletDetailsResponse extends BridgeServiceResponse<BridgeWalletWithBalance> {}
+
+export interface BridgeGetWalletTransactionsResponse extends BridgeServiceResponse<{
+  data: BridgeTransaction[];
+  count: number;
+  has_more?: boolean;
+}> {}
+
+export interface BridgeGetCustomerTransactionsResponse extends BridgeServiceResponse<BridgeTransaction[]> {}
+
+export interface BridgeGetWalletBalanceResponse extends BridgeServiceResponse<{
+  balance: string;
+  currency: string;
+  available_balance?: string;
+  pending_balance?: string;
+}> {}
+
+// Transaction Query Options
+export interface BridgeTransactionQueryOptions {
+  limit?: number;
+  offset?: number;
+  startDate?: string; // ISO 8601 date
+  endDate?: string; // ISO 8601 date
+  status?: BridgeTransaction['status'];
+  type?: BridgeTransaction['type'];
+  currency?: string;
+} 

@@ -772,6 +772,240 @@ export const bridgeService = {
   },
 
   /**
+   * Get specific wallet details with balance information
+   * GET /customers/{customerId}/wallets/{walletId}
+   */
+  getWalletDetails: async (customerId: string, walletId: string): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }> => {
+    try {
+      console.log(`💳 Bridge API: Getting wallet details for ${walletId}`);
+      
+      const response = await bridgeRequest(`/customers/${customerId}/wallets/${walletId}`);
+
+      if (response.error) {
+        console.error(`❌ Bridge API Error getting wallet details:`, response.error);
+        return {
+          success: false,
+          error: `Get Wallet Details Error: ${response.error.message}`,
+        };
+      }
+
+      console.log(`✅ Wallet details retrieved for ${walletId}`);
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error(`💥 Exception getting wallet details for ${walletId}:`, error);
+      return {
+        success: false,
+        error: `Get Wallet Details Failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
+    }
+  },
+
+  /**
+   * Get transaction history for a specific wallet
+   * GET /wallets/{walletId}/history - This endpoint DOES exist in Bridge.xyz API
+   */
+  getWalletTransactions: async (
+    walletId: string, 
+    options: { 
+      limit?: number; 
+      offset?: number; 
+      startDate?: string; 
+      endDate?: string;
+    } = {}
+  ): Promise<{
+    success: boolean;
+    data?: any[];
+    count?: number;
+    error?: string;
+  }> => {
+    try {
+      console.log(`📊 Bridge API: Getting transaction history for wallet ${walletId}`);
+      
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      if (options.limit) queryParams.append('limit', options.limit.toString());
+      if (options.offset) queryParams.append('offset', options.offset.toString());
+      if (options.startDate) queryParams.append('start_date', options.startDate);
+      if (options.endDate) queryParams.append('end_date', options.endDate);
+      
+      const endpoint = `/wallets/${walletId}/history${
+        queryParams.toString() ? `?${queryParams.toString()}` : ''
+      }`;
+      
+      const response = await bridgeRequest(endpoint);
+
+      if (response.error) {
+        console.error(`❌ Bridge API Error getting wallet history:`, response.error);
+        return {
+          success: false,
+          error: `Get Wallet History Error: ${response.error.message}`,
+        };
+      }
+
+      // Handle response format
+      let transactionsArray: any[] = [];
+      let totalCount = 0;
+      
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          transactionsArray = response.data;
+          totalCount = transactionsArray.length;
+        } else if (typeof response.data === 'object' && response.data !== null) {
+          const responseObj = response.data as any;
+          if (responseObj.data && Array.isArray(responseObj.data)) {
+            transactionsArray = responseObj.data;
+            totalCount = responseObj.count || transactionsArray.length;
+          }
+        }
+      }
+
+      console.log(`✅ Retrieved ${transactionsArray.length} transactions for wallet ${walletId}`);
+      return {
+        success: true,
+        data: transactionsArray,
+        count: totalCount,
+      };
+    } catch (error) {
+      console.error(`💥 Exception getting wallet history for ${walletId}:`, error);
+      return {
+        success: false,
+        error: `Get Wallet History Failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
+    }
+  },
+
+  /**
+   * Get recent transactions across all wallets for a customer
+   * Uses the correct /wallets/{walletId}/history endpoint for each wallet
+   */
+  getCustomerTransactions: async (
+    customerId: string, 
+    options: { 
+      limit?: number; 
+      offset?: number; 
+    } = {}
+  ): Promise<{
+    success: boolean;
+    data?: any[];
+    error?: string;
+  }> => {
+    try {
+      console.log(`📊 Bridge API: Getting recent transactions for customer ${customerId}`);
+      
+      // First get all customer wallets
+      const walletsResponse = await bridgeService.getCustomerWallets(customerId);
+      
+      if (!walletsResponse.success || !walletsResponse.data) {
+        return {
+          success: false,
+          error: walletsResponse.error || 'Failed to fetch customer wallets',
+        };
+      }
+
+      const wallets = walletsResponse.data;
+      console.log(`💳 Found ${wallets.length} wallets for customer`);
+
+      // Get transactions from each wallet using correct endpoint
+      const allTransactions: any[] = [];
+      
+      for (const wallet of wallets) {
+        try {
+          const transactionsResponse = await bridgeService.getWalletTransactions(
+            wallet.id, 
+            { limit: options.limit || 10 }
+          );
+          
+          if (transactionsResponse.success && transactionsResponse.data) {
+            // Add wallet info to each transaction
+            const walletTransactions = transactionsResponse.data.map((tx: any) => ({
+              ...tx,
+              walletId: wallet.id,
+              walletAddress: wallet.address,
+              walletChain: wallet.chain || wallet.network,
+            }));
+            
+            allTransactions.push(...walletTransactions);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Failed to get transactions for wallet ${wallet.id}:`, error);
+          // Continue with other wallets even if one fails
+        }
+      }
+
+      // Sort by timestamp (most recent first) and limit results
+      allTransactions.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.timestamp || 0).getTime();
+        const dateB = new Date(b.created_at || b.timestamp || 0).getTime();
+        return dateB - dateA;
+      });
+
+      const limitedTransactions = allTransactions.slice(0, options.limit || 5);
+
+      console.log(`✅ Retrieved ${limitedTransactions.length} recent transactions for customer`);
+      return {
+        success: true,
+        data: limitedTransactions,
+      };
+    } catch (error) {
+      console.error(`💥 Exception getting customer transactions:`, error);
+      return {
+        success: false,
+        error: `Get Customer Transactions Failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
+    }
+  },
+
+  /**
+   * Get wallet balance for a specific wallet
+   * This extracts balance information from wallet details
+   */
+  getWalletBalance: async (customerId: string, walletId: string): Promise<{
+    success: boolean;
+    balance?: string;
+    currency?: string;
+    error?: string;
+  }> => {
+    try {
+      const walletResponse = await bridgeService.getWalletDetails(customerId, walletId);
+      
+      if (!walletResponse.success || !walletResponse.data) {
+        return {
+          success: false,
+          error: walletResponse.error || 'Failed to get wallet details',
+        };
+      }
+
+      const wallet = walletResponse.data;
+      return {
+        success: true,
+        balance: wallet.balance || '0',
+        currency: wallet.currency || 'USDC',
+      };
+    } catch (error) {
+      console.error(`💥 Exception getting wallet balance:`, error);
+      return {
+        success: false,
+        error: `Get Wallet Balance Failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
+    }
+  },
+
+  /**
    * Sync customer status from Bridge (for updates)
    */
   syncCustomerStatus: async (customerId: string): Promise<{
