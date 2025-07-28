@@ -4,10 +4,10 @@ import { useCardStore } from '@/app/store/cardStore';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  Alert,
-  Dimensions,
-  StyleSheet,
-  View,
+    Alert,
+    Dimensions,
+    StyleSheet,
+    View,
 } from 'react-native';
 import { ThemedButton } from '../ThemedButton';
 import { ThemedText } from '../ThemedText';
@@ -15,16 +15,15 @@ import { ThemedText } from '../ThemedText';
 interface CardCreationProps {
   onCardCreated?: (cardId: string) => void;
   style?: any;
+  cardProductId?: string;
+  cardProductName?: string;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = screenWidth - 40;
 const CARD_HEIGHT = CARD_WIDTH * 0.63;
 
-// Default card product ID for Moon API
-const DEFAULT_CARD_PRODUCT_ID = process.env.EXPO_PUBLIC_MOON_CARD_PRODUCT_ID || 'default-card-product';
-
-export function CardCreation({ onCardCreated, style }: CardCreationProps) {
+export function CardCreation({ onCardCreated, style, cardProductId, cardProductName }: CardCreationProps) {
   const { user, profile } = useAuthStore();
   const { createCard, isCreatingCard, createCardError, clearCreateCardError } = useCardStore();
   
@@ -34,6 +33,9 @@ export function CardCreation({ onCardCreated, style }: CardCreationProps) {
   const textColor = useThemeColor({}, 'text');
   const subtextColor = useThemeColor({}, 'textSecondary');
   const errorColor = useThemeColor({}, 'error');
+
+  // Use the provided cardProductId or fallback to default
+  const productId = cardProductId || process.env.EXPO_PUBLIC_MOON_CARD_PRODUCT_ID || 'default-card-product';
 
   const handleCreateCard = async () => {
     if (!user || !profile) {
@@ -61,7 +63,7 @@ export function CardCreation({ onCardCreated, style }: CardCreationProps) {
 
       clearCreateCardError();
 
-      const result = await createCard(profileId, DEFAULT_CARD_PRODUCT_ID);
+      const result = await createCard(profileId, productId);
       
       if (result.success && result.card) {
         Alert.alert(
@@ -94,11 +96,14 @@ export function CardCreation({ onCardCreated, style }: CardCreationProps) {
         </View>
         
         <ThemedText style={[styles.title, { color: textColor }]}>
-          Crear tarjeta de débito
+          {cardProductName ? `Crear ${cardProductName}` : 'Crear tarjeta de débito'}
         </ThemedText>
         
         <ThemedText style={[styles.description, { color: subtextColor }]}>
-          Crea tu tarjeta de débito virtual para hacer compras en línea y retirar efectivo en cajeros automáticos.
+          {cardProductName 
+            ? `Crea tu ${cardProductName.toLowerCase()} para hacer compras en línea y retirar efectivo en cajeros automáticos.`
+            : 'Crea tu tarjeta de débito virtual para hacer compras en línea y retirar efectivo en cajeros automáticos.'
+          }
         </ThemedText>
 
         <View style={styles.features}>

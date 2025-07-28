@@ -1,13 +1,18 @@
 import { BackButton, CardCreation } from '@/app/components/cards';
 import { ThemedView } from '@/app/components/ThemedView';
 import { useThemeColor } from '@/app/hooks/useThemeColor';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CreateCardScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    cardProductId: string;
+    cardProductName: string;
+  }>();
+  
   const backgroundColor = useThemeColor({}, 'background');
 
   const handleCardCreated = (cardId: string) => {
@@ -28,7 +33,12 @@ export default function CreateCardScreen() {
           onPress={handleGoBack}
           style={styles.backButton}
         />
-        <CardCreation onCardCreated={handleCardCreated} style={styles.cardCreation} />
+        <CardCreation 
+          onCardCreated={handleCardCreated} 
+          style={styles.cardCreation}
+          cardProductId={params.cardProductId}
+          cardProductName={params.cardProductName}
+        />
       </SafeAreaView>
     </ThemedView>
   );

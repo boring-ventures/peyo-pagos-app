@@ -19,6 +19,30 @@ export interface MoonCardResponse {
   card: MoonCardData;
 }
 
+// Moon Card Products Types
+export interface MoonCardProduct {
+  id: string;
+  name: string;
+  minimum_value: number;
+  maximum_value: number;
+  fee_amount: number;
+  fee_type: string;
+  categories: string[];
+}
+
+export interface MoonPagination {
+  currentPage: number;
+  from: number;
+  lastPage: number;
+  perPage: number;
+  total: number;
+}
+
+export interface MoonCardProductsResponse {
+  pagination: MoonPagination;
+  card_products: MoonCardProduct[];
+}
+
 export interface Card {
   id: string; // Our Supabase UUID
   createdAt: string;

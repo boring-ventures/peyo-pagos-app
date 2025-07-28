@@ -1,10 +1,10 @@
 import {
-  BackButton,
-  CardCreation,
-  CardDisplay,
-  CardError,
-  CardLoading,
+    BackButton,
+    CardDisplay,
+    CardError,
+    CardLoading,
 } from "@/app/components/cards";
+import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
@@ -14,11 +14,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback } from "react";
 import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -59,7 +59,7 @@ export default function CardsScreen() {
   };
 
   const handleCreateCard = () => {
-    router.push("/(private)/cards/create" as any);
+    router.push("/(private)/cards/card-type-selection" as any);
   };
 
   const handleCardCreated = (cardId: string) => {
@@ -158,7 +158,26 @@ export default function CardsScreen() {
               />
             ))
           ) : (
-            <CardCreation onCardCreated={handleCardCreated} />
+            <View style={styles.emptyStateContainer}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: `${tintColor}20` }]}>
+                <Ionicons name="card-outline" size={40} color={tintColor} />
+              </View>
+              
+              <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
+                No tienes tarjetas aún
+              </ThemedText>
+              
+              <ThemedText style={[styles.emptyDescription, { color: subtextColor }]}>
+                Crea tu primera tarjeta de débito virtual y comienza a usarla para compras en línea.
+              </ThemedText>
+
+              <ThemedButton
+                title="Crear mi primera tarjeta"
+                type="primary"
+                onPress={handleCreateCard}
+                style={styles.createFirstCardButton}
+              />
+            </View>
           )}
         </View>
 
@@ -290,5 +309,36 @@ const styles = StyleSheet.create({
   infoDescription: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  emptyDescription: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 30,
+    lineHeight: 22,
+  },
+  createFirstCardButton: {
+    width: "100%",
+    paddingVertical: 15,
   },
 });

@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { MoonApiResponse, MoonCardData, MoonCardResponse } from '../types/Card';
+import { MoonApiResponse, MoonCardData, MoonCardProductsResponse, MoonCardResponse } from '../types/Card';
 
 // Moon API Configuration
 const MOON_API_BASE_URL = 
@@ -10,6 +10,11 @@ const MOON_API_BASE_URL =
 const MOON_API_KEY = 
   Constants.expoConfig?.extra?.EXPO_PUBLIC_MOON_API_KEY ||
   process.env.EXPO_PUBLIC_MOON_API_KEY;
+
+// Debug logging for configuration
+console.log('🔧 Moon API Configuration:');
+console.log('  Base URL:', MOON_API_BASE_URL);
+console.log('  API Key:', MOON_API_KEY ? '***' + MOON_API_KEY.slice(-4) : 'MISSING');
 
 if (!MOON_API_KEY) {
   console.warn('⚠️ Moon API key is missing. Card features will not work.');
@@ -53,6 +58,8 @@ const moonRequest = async <T>(
     };
 
     console.log(`🌙 Moon API ${method}: ${endpoint}`);
+    console.log(`🔗 Full URL: ${url}`);
+    console.log(`📋 Headers:`, JSON.stringify(headers, null, 2));
 
     const response = await fetch(url, {
       ...options,
@@ -307,6 +314,59 @@ export const moonService = {
       return {
         success: false,
         error: 'Error inesperado obteniendo balance',
+      };
+    }
+  },
+
+  /**
+   * Get available card products
+   * @param perPage - Items per page (default: 10)
+   */
+  getCardProducts: async (
+    perPage: number = 10
+  ): Promise<{
+    success: boolean;
+    data?: MoonCardProductsResponse;
+    error?: string;
+  }> => {
+    try {
+      console.log('🔍 Getting Moon card products, perPage:', perPage);
+      
+      const queryParams = new URLSearchParams({
+        perPage: perPage.toString(),
+      });
+      
+      const response = await moonRequest<MoonCardProductsResponse>(
+        `/v1/api-gateway/card/card-products?${queryParams.toString()}`
+      );
+
+      if (response.error) {
+        console.error('❌ Moon API error getting card products:', response.error);
+        return {
+          success: false,
+          error: response.error.message,
+        };
+      }
+
+      if (!response.data || !response.data.card_products) {
+        return {
+          success: false,
+          error: 'No se encontraron productos de tarjetas',
+        };
+      }
+
+      console.log('✅ Card products retrieved:', response.data.card_products.length);
+      
+      return {
+        success: true,
+        data: response.data,
+      };
+
+    } catch (error) {
+      console.error('💥 Error getting Moon card products:', error);
+      return {
+        success: false,
+        error: 'Error inesperado obteniendo productos de tarjetas',
       };
     }
   },
