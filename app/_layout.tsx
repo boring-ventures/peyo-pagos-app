@@ -1,6 +1,7 @@
 import { AuthProvider } from "@/app/components/AuthContext";
 import { Colors } from "@/app/constants/Colors";
 import { useColorScheme } from "@/app/hooks/useColorScheme";
+import { QueryProvider } from "@/app/providers/QueryProvider";
 import { useAuthStore } from "@/app/store/authStore";
 import { useThemeStore } from "@/app/store/themeStore";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
@@ -51,20 +52,22 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={theme}>
-        <StatusBar 
-          style={colorScheme === 'dark' ? 'light' : 'dark'} 
-          backgroundColor={theme.colors.background}
-        />
-        <AuthProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(public)" />
-            <Stack.Screen name="(private)" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="index" redirect={true} />
-          </Stack>
-        </AuthProvider>
-      </ThemeProvider>
+      <QueryProvider>
+        <ThemeProvider value={theme}>
+          <StatusBar 
+            style={colorScheme === 'dark' ? 'light' : 'dark'} 
+            backgroundColor={theme.colors.background}
+          />
+          <AuthProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(public)" />
+              <Stack.Screen name="(private)" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="index" redirect={true} />
+            </Stack>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryProvider>
     </GestureHandlerRootView>
   );
 }

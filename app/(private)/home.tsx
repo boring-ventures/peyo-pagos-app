@@ -2,6 +2,8 @@ import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
+// TanStack Query hooks - uncomment to use automatic refresh every minute
+import { useBalanceQuery, useTransactionsQuery } from "@/app/hooks/queries";
 import { bridgeStatusService } from "@/app/services/bridgeStatusService";
 import { useAuthStore } from "@/app/store/authStore";
 import { useWalletBalanceStore } from "@/app/store/walletBalanceStore";
@@ -41,7 +43,13 @@ export default function HomeScreen() {
     refreshAll,
     clearBalanceError,
     clearTransactionError,
+    updateBalanceFromExternal,
+    updateTransactionsFromExternal,
   } = useWalletBalanceStore();
+
+  // TanStack Query hooks for automatic updates
+  const balanceQuery = useBalanceQuery();
+  const transactionsQuery = useTransactionsQuery(3);
   
   const [isCheckingWallets, setIsCheckingWallets] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,6 +65,23 @@ export default function HomeScreen() {
   const tintColor = useThemeColor({}, "tint");
   const balanceTextColor = useThemeColor({}, "text");
   const router = useRouter();
+
+  // Sync TanStack Query data with Zustand store
+  useEffect(() => {
+    if (balanceQuery.data && balanceQuery.isSuccess) {
+      // Update the store with fresh data from TanStack Query
+      updateBalanceFromExternal(balanceQuery.data);
+      console.log('🔄 Synced TanStack Query balance data to store');
+    }
+  }, [balanceQuery.data, balanceQuery.isSuccess, updateBalanceFromExternal]);
+
+  useEffect(() => {
+    if (transactionsQuery.data && transactionsQuery.isSuccess) {
+      // Update the store with fresh transaction data from TanStack Query
+      updateTransactionsFromExternal(transactionsQuery.data);
+      console.log('🔄 Synced TanStack Query transaction data to store');
+    }
+  }, [transactionsQuery.data, transactionsQuery.isSuccess, updateTransactionsFromExternal]);
 
   // Load user tag on mount
   useEffect(() => {
@@ -195,9 +220,34 @@ export default function HomeScreen() {
     }
   };
 
-  // Get display values
-  const displayBalance = balanceData?.formattedBalance || "0,00 USDC";
+  // Get display values - prioritize TanStack Query data if available
+  const displayBalance = balanceQuery.data?.formattedBalance || balanceData?.formattedBalance || "0,00 USDC";
   const displayPeyoId = userTag || profile?.user_tag || "Loading...";
+  
+  // Use TanStack Query loading states if available, fallback to store states
+  const isBalanceLoading = balanceQuery.isLoading || isLoadingBalance;
+  const isTransactionsLoading = transactionsQuery.isLoading || isLoadingTransactions;
+
+  // Format timestamp for display
+  const formatLastUpdated = (timestamp: string | Date) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  // Get the most recent timestamp from either TanStack Query or store
+  const getLastUpdatedTimestamp = () => {
+    if (balanceQuery.data?.lastUpdated) {
+      return balanceQuery.data.lastUpdated;
+    }
+    if (balanceData?.lastUpdated) {
+      return balanceData.lastUpdated;
+    }
+    return null;
+  };
 
   return (
     <ThemedView style={{ flex: 1, backgroundColor: cardColor }}>
@@ -236,7 +286,7 @@ export default function HomeScreen() {
 
           {/* Balance */}
           <View style={styles.balanceContainer}>
-            {isLoadingBalance ? (
+            {isBalanceLoading ? (
               <View style={styles.balanceLoadingContainer}>
                 <ActivityIndicator size="small" color={tintColor} />
                 <ThemedText style={[styles.balanceLoadingText, { color: subtextColor }]}>
@@ -262,9 +312,9 @@ export default function HomeScreen() {
                 {displayBalance}
               </ThemedText>
             )}
-            {balanceData?.lastUpdated && (
+            {getLastUpdatedTimestamp() && (
               <ThemedText style={[styles.lastUpdatedText, { color: subtextColor }]}>
-                Actualizado: {new Date(balanceData.lastUpdated).toLocaleTimeString()}
+                Actualizado: {formatLastUpdated(getLastUpdatedTimestamp()!)}
               </ThemedText>
             )}
           </View>
@@ -353,7 +403,7 @@ export default function HomeScreen() {
               <ThemedText style={styles.sectionTitle}>
                 Transferencias recientes
               </ThemedText>
-              {isLoadingTransactions && (
+              {isTransactionsLoading && (
                 <ActivityIndicator size="small" color={tintColor} />
               )}
             </View>

@@ -26,6 +26,10 @@ interface WalletBalanceState {
   clearTransactionError: () => void;
   clearAllData: () => void;
   
+  // External data sync methods
+  updateBalanceFromExternal: (balanceData: WalletBalanceData) => void;
+  updateTransactionsFromExternal: (transactions: TransactionDisplay[]) => void;
+  
   // Utility methods
   isBalanceDataFresh: () => boolean;
   areTransactionsFresh: () => boolean;
@@ -170,6 +174,20 @@ export const useWalletBalanceStore = create<WalletBalanceState>((set, get) => ({
     transactions: [],
     transactionError: null,
     transactionsLastFetched: null,
+  }),
+  
+  // External data sync methods
+  updateBalanceFromExternal: (balanceData: WalletBalanceData) => set({ 
+    balanceData,
+    balanceLastFetched: new Date(),
+    isLoadingBalance: false,
+    balanceError: null,
+  }),
+  updateTransactionsFromExternal: (transactions: TransactionDisplay[]) => set({ 
+    transactions,
+    transactionsLastFetched: new Date(),
+    isLoadingTransactions: false,
+    transactionError: null,
   }),
   
   // Utility methods

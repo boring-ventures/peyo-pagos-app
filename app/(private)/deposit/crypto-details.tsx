@@ -1,6 +1,7 @@
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
+import { useQRCode } from "@/app/hooks/useQRCode";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
 import { liquidationAddressService } from "@/app/services/liquidationAddressService";
 import { useAuthStore } from "@/app/store/authStore";
@@ -18,9 +19,10 @@ import {
   Share,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { SvgXml } from "react-native-svg";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -33,6 +35,7 @@ export default function CryptoDetailsScreen() {
   const borderColor = useThemeColor({}, "border");
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
+  const errorColor = useThemeColor({}, "error");
 
   // Auth and Bridge data - Fixed TypeScript errors
   const { user, profile } = useAuthStore();
@@ -87,6 +90,15 @@ export default function CryptoDetailsScreen() {
   const [renderError, setRenderError] = useState<string | null>(null);
   const [liquidationAddressLoaded, setLiquidationAddressLoaded] =
     useState(false);
+
+  // QR Code state and hook
+  const {
+    generateQR,
+    isGenerating: isGeneratingQR,
+    error: qrError,
+    clearError: clearQRError,
+  } = useQRCode();
+  const [qrSVG, setQrSVG] = useState<string | null>(null);
 
   // Memoized values to prevent unnecessary re-renders
   const hasUserData = useMemo(
@@ -267,38 +279,45 @@ export default function CryptoDetailsScreen() {
         primaryWallet.address
       );
 
-             // Get the Supabase wallet.id for this Bridge wallet
-       console.log(`🔍 Finding Supabase wallet.id for Bridge wallet: ${primaryWallet.id}`);
-       let supabaseWalletId: string | undefined = undefined;
-       
-       try {
-         const { supabaseAdmin } = await import('@/app/services/supabaseAdmin');
-         const { data: walletData, error: walletError } = await supabaseAdmin
-           .from('wallets')
-           .select('id')
-           .eq('bridge_wallet_id', primaryWallet.id)
-           .single();
+      // Get the Supabase wallet.id for this Bridge wallet
+      console.log(
+        `🔍 Finding Supabase wallet.id for Bridge wallet: ${primaryWallet.id}`
+      );
+      let supabaseWalletId: string | undefined = undefined;
 
-         if (walletError || !walletData) {
-           console.warn('⚠️ Could not find Supabase wallet for Bridge wallet:', primaryWallet.id);
-           console.warn('⚠️ Continuing without wallet_id reference');
-         } else {
-           supabaseWalletId = walletData.id;
-           console.log(`✅ Found Supabase wallet.id: ${supabaseWalletId} for Bridge: ${primaryWallet.id}`);
-         }
-       } catch (error) {
-         console.warn('⚠️ Error looking up Supabase wallet:', error);
-       }
+      try {
+        const { supabaseAdmin } = await import("@/app/services/supabaseAdmin");
+        const { data: walletData, error: walletError } = await supabaseAdmin
+          .from("wallets")
+          .select("id")
+          .eq("bridge_wallet_id", primaryWallet.id)
+          .single();
 
-       // Call with correct profile.id from profiles table
-       await getOrCreateDepositAddress(
-         profileId, // Using correct profile.id from profiles table
-         bridgeCustomerId,
-         primaryWallet.address,
-         chain,
-         cryptoType,
-         supabaseWalletId // Pass Supabase wallet.id directly
-       );
+        if (walletError || !walletData) {
+          console.warn(
+            "⚠️ Could not find Supabase wallet for Bridge wallet:",
+            primaryWallet.id
+          );
+          console.warn("⚠️ Continuing without wallet_id reference");
+        } else {
+          supabaseWalletId = walletData.id;
+          console.log(
+            `✅ Found Supabase wallet.id: ${supabaseWalletId} for Bridge: ${primaryWallet.id}`
+          );
+        }
+      } catch (error) {
+        console.warn("⚠️ Error looking up Supabase wallet:", error);
+      }
+
+      // Call with correct profile.id from profiles table
+      await getOrCreateDepositAddress(
+        profileId, // Using correct profile.id from profiles table
+        bridgeCustomerId,
+        primaryWallet.address,
+        chain,
+        cryptoType,
+        supabaseWalletId // Pass Supabase wallet.id directly
+      );
 
       // Reset retry attempts on success
       setRetryAttempts(0);
@@ -356,6 +375,45 @@ export default function CryptoDetailsScreen() {
     console.log("🔄 useEffect: resetting liquidation flag for new parameters");
     setLiquidationAddressLoaded(false);
   }, [chain, cryptoType]);
+
+  // Generate QR code when liquidation data is ready
+  useEffect(() => {
+    const generateQRCode = async () => {
+      if (!currentLiquidationData || !currentAddress) {
+        setQrSVG(null);
+        return;
+      }
+
+      try {
+        clearQRError();
+        console.log("🔄 Generating QR for liquidation address...");
+
+        const qrData = generateCompleteQRData();
+        if (!qrData) {
+          console.warn("⚠️ No QR data generated");
+          return;
+        }
+
+        const dataURL = await generateQR(qrData, {
+          width: 200,
+          margin: 2,
+          errorCorrectionLevel: "M",
+          color: {
+            dark: textColor, // Use theme text color for QR code
+            light: backgroundColor, // Use theme background color for QR background
+          },
+        });
+
+        setQrSVG(dataURL);
+        console.log("✅ QR code generated successfully");
+      } catch (error) {
+        console.error("❌ Failed to generate QR code:", error);
+        setQrSVG(null);
+      }
+    };
+
+    generateQRCode();
+  }, [currentLiquidationData, currentAddress, generateQR, clearQRError]);
 
   const handleRetry = useCallback(async () => {
     if (retryAttempts >= maxRetries) {
@@ -520,53 +578,14 @@ export default function CryptoDetailsScreen() {
         return "";
       }
 
-      const qrData = {
-        // Basic deposit info
-        address: currentLiquidationData.liquidationAddress,
-        currency: currentLiquidationData.currency.toUpperCase(),
-        network: networkName,
-        chain: currentLiquidationData.chain,
-
-        // Bridge metadata
-        bridge_liquidation_id: currentLiquidationData.bridgeLiquidationId,
-        destination_currency:
-          currentLiquidationData.destinationCurrency.toUpperCase(),
-        destination_payment_rail: currentLiquidationData.destinationPaymentRail,
-        destination_address: currentLiquidationData.destinationAddress,
-
-        // Transaction limits and timing
-        minimum_amount: "1.00 USD",
-        processing_time: "1-3 minutes",
-
-        // Network-specific instructions
-        network_instructions: {
-          binance_network: networkName,
-          memo_required: currentLiquidationData.chain === "stellar",
-          gas_token:
-            currentLiquidationData.chain === "ethereum"
-              ? "ETH"
-              : currentLiquidationData.chain === "polygon"
-              ? "MATIC"
-              : "SOL",
-        },
-
-        // Security and verification
-        state: currentLiquidationData.state,
-        created_at: new Date().toISOString(),
-
-        // App metadata
-        app: "Peyo Pagos",
-        version: "1.0",
-        type: "crypto_deposit",
-      };
-
-      return JSON.stringify(qrData, null, 2);
+      // Return only the pure address for QR code
+      return currentLiquidationData.liquidationAddress;
     } catch (error) {
       console.error("Error generating QR data:", error);
       setRenderError("Error generando datos QR");
       return "";
     }
-  }, [currentLiquidationData, networkName]);
+  }, [currentLiquidationData]);
 
   // Generate Binance instructions (memoized to prevent re-calculations)
   const binanceInstructions = useMemo(() => {
@@ -615,7 +634,7 @@ export default function CryptoDetailsScreen() {
       <ThemedView style={{ flex: 1, backgroundColor }}>
         <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={48} color="#FF6B6B" />
+            <Ionicons name="alert-circle" size={48} color={errorColor} />
             <ThemedText style={styles.errorTitle}>
               Error de Renderizado
             </ThemedText>
@@ -708,7 +727,7 @@ export default function CryptoDetailsScreen() {
               ]}
             >
               <View style={styles.errorContent}>
-                <Ionicons name="alert-circle" size={48} color="#FF6B6B" />
+                <Ionicons name="alert-circle" size={48} color={errorColor} />
                 <ThemedText style={styles.errorTitle}>
                   {initializationStatus === "error"
                     ? "Error de inicialización"
@@ -767,54 +786,61 @@ export default function CryptoDetailsScreen() {
                 ]}
               >
                 <View style={styles.qrContainer}>
-                  {/* QR Code temporarily commented out due to crash issues */}
-                  {/* 
-                  {(() => {
-                    try {
-                      const qrData = generateCompleteQRData();
-                      if (!qrData) {
-                        return (
-                          <View style={styles.qrErrorContainer}>
-                            <Ionicons name="alert-circle" size={32} color="#FF6B6B" />
-                            <ThemedText style={styles.qrErrorText}>Error generando QR</ThemedText>
-                          </View>
-                        );
-                      }
-                      return (
-                        <QRCode
-                          value={qrData}
-                          size={200}
-                          backgroundColor="white"
-                          color="black"
-                        />
-                      );
-                    } catch (error) {
-                      console.error('QR Code render error:', error);
-                      return (
-                        <View style={styles.qrErrorContainer}>
-                          <Ionicons name="alert-circle" size={32} color="#FF6B6B" />
-                          <ThemedText style={styles.qrErrorText}>Error QR</ThemedText>
-                        </View>
-                      );
-                    }
-                  })()}
-                  */}
-
-                  {/* Temporary placeholder for QR */}
-                  <View style={styles.qrErrorContainer}>
-                    <Ionicons name="qr-code" size={64} color="#ccc" />
-                    <ThemedText style={[styles.qrErrorText, { color: "#999" }]}>
-                      QR Deshabilitado
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.qrErrorText,
-                        { color: "#999", fontSize: 10 },
-                      ]}
-                    >
-                      Temporalmente
-                    </ThemedText>
-                  </View>
+                  {isGeneratingQR ? (
+                    <View style={styles.qrLoadingContainer}>
+                      <ActivityIndicator size="large" color={tintColor} />
+                      <ThemedText
+                        style={[styles.qrLoadingText, { color: tintColor }]}
+                      >
+                        Generando código QR...
+                      </ThemedText>
+                    </View>
+                  ) : qrSVG ? (
+                    <View style={styles.qrImageContainer}>
+                      <SvgXml xml={qrSVG} width={200} height={200} />
+                    </View>
+                  ) : qrError ? (
+                    <View style={styles.qrErrorContainer}>
+                      <Ionicons name="alert-circle" size={32} color={errorColor} />
+                      <ThemedText style={[styles.qrErrorText, { color: errorColor }]}>
+                        Error generando QR
+                      </ThemedText>
+                      <ThemedText
+                        style={[
+                          styles.qrErrorText,
+                          { fontSize: 12, marginTop: 4, color: subtextColor },
+                        ]}
+                      >
+                        {qrError}
+                      </ThemedText>
+                      <TouchableOpacity
+                        style={[
+                          styles.retryQRButton,
+                          { borderColor: tintColor },
+                        ]}
+                        onPress={() => {
+                          clearQRError();
+                          setQrSVG(null);
+                          // El useEffect se ejecutará automáticamente
+                        }}
+                      >
+                        <ThemedText
+                          style={[styles.retryQRText, { color: tintColor }]}
+                        >
+                          Reintentar
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.qrErrorContainer}>
+                      <Ionicons name="qr-code" size={64} color={subtextColor} />
+                      <ThemedText
+                        style={[styles.qrErrorText, { color: subtextColor }]}
+                      >
+                        Sin datos para QR
+                      </ThemedText>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.addressTextContainer}>
@@ -1135,17 +1161,38 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 12,
   },
+  qrLoadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  qrLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+  },
   qrErrorContainer: {
     width: 200,
     height: 200,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "rgba(0,0,0,0.05)",
+    borderRadius: 8,
   },
   qrErrorText: {
     marginTop: 8,
     fontSize: 12,
-    color: "#FF6B6B",
+    textAlign: "center",
+  },
+  retryQRButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  retryQRText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   addressTextContainer: {
     width: "100%",
@@ -1286,5 +1333,11 @@ const styles = StyleSheet.create({
   successText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  qrImageContainer: {
+    width: 200,
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
