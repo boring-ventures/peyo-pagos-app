@@ -264,11 +264,11 @@ export interface BridgeTransactionQueryOptions {
 // Liquidation Address Types
 export interface BridgeLiquidationAddress {
   id: string;
-  chain: 'solana' | 'ethereum' | 'polygon' | 'stellar';
-  currency: 'usdc' | 'usdt' | 'usdb';
+  chain: 'arbitrum' | 'avalanche_c_chain' | 'base' | 'ethereum' | 'optimism' | 'polygon' | 'solana' | 'stellar' | 'tron';
+  currency: 'usdb' | 'usdc' | 'usdt' | 'dai' | 'pyusd' | 'eurc';
   address: string; // The address users send crypto to
-  destination_payment_rail: 'solana' | 'ethereum' | 'polygon' | 'wire' | 'ach' | 'sepa';
-  destination_currency: 'usdc' | 'usdt' | 'usdb' | 'usd' | 'eur';
+  destination_payment_rail: 'arbitrum' | 'avalanche_c_chain' | 'base' | 'ethereum' | 'optimism' | 'polygon' | 'solana' | 'stellar' | 'tron' | 'wire' | 'ach' | 'sepa';
+  destination_currency: 'usdb' | 'usdc' | 'usdt' | 'dai' | 'pyusd' | 'eurc' | 'usd' | 'eur';
   destination_address?: string; // For crypto destinations (Bridge wallet address)
   external_account_id?: string; // For fiat destinations
   destination_wire_message?: string;
@@ -282,10 +282,10 @@ export interface BridgeLiquidationAddress {
 
 // Liquidation Address Creation Parameters
 export interface CreateLiquidationAddressParams {
-  chain: 'solana' | 'ethereum' | 'polygon';
-  currency: 'usdc' | 'usdt' | 'usdb';
-  destination_payment_rail: 'solana' | 'ethereum' | 'polygon';
-  destination_currency: 'usdc' | 'usdt' | 'usdb';
+  chain: 'arbitrum' | 'avalanche_c_chain' | 'base' | 'ethereum' | 'optimism' | 'polygon' | 'solana' | 'stellar' | 'tron';
+  currency: 'usdb' | 'usdc' | 'usdt' | 'dai' | 'pyusd' | 'eurc';
+  destination_payment_rail: 'arbitrum' | 'avalanche_c_chain' | 'base' | 'ethereum' | 'optimism' | 'polygon' | 'solana' | 'stellar' | 'tron';
+  destination_currency: 'usdb' | 'usdc' | 'usdt' | 'dai' | 'pyusd' | 'eurc';
   destination_address: string; // Bridge wallet address
   custom_developer_fee_percent?: string;
 } 

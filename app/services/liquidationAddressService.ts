@@ -43,8 +43,11 @@ export const liquidationAddressService = {
       console.log(`🔄 Getting or creating liquidation address for ${chain}/${currency}`);
       console.log(`📝 Parameters: profileId=${profileId}, customerId=${customerId}, wallet=${userWalletAddress}, walletId=${walletId}`);
 
-      const destinationPaymentRail = chain; // Same as chain for crypto-to-crypto
-      const destinationCurrency = currency; // Same currency
+      // Always liquidate to Solana USDC
+      const destinationPaymentRail = 'solana';
+      const destinationCurrency = 'usdc';
+
+      console.log(`🎯 Liquidation destination: ${destinationPaymentRail}/${destinationCurrency}`);
 
       // Step 1: Check Supabase for existing liquidation address
       console.log('🔍 Step 1: Checking Supabase for existing liquidation address');
@@ -186,10 +189,10 @@ export const liquidationAddressService = {
       console.log('🆕 Step 3: Creating new liquidation address in Bridge');
 
       const createParams: CreateLiquidationAddressParams = {
-        chain: chain as 'solana' | 'ethereum' | 'polygon',
-        currency: currency as 'usdc' | 'usdt' | 'usdb',
-        destination_payment_rail: destinationPaymentRail as 'solana' | 'ethereum' | 'polygon',
-        destination_currency: destinationCurrency as 'usdc' | 'usdt' | 'usdb',
+        chain: chain as 'arbitrum' | 'avalanche_c_chain' | 'base' | 'ethereum' | 'optimism' | 'polygon' | 'solana' | 'stellar' | 'tron',
+        currency: currency as 'usdb' | 'usdc' | 'usdt' | 'dai' | 'pyusd' | 'eurc',
+        destination_payment_rail: destinationPaymentRail as 'arbitrum' | 'avalanche_c_chain' | 'base' | 'ethereum' | 'optimism' | 'polygon' | 'solana' | 'stellar' | 'tron',
+        destination_currency: destinationCurrency as 'usdb' | 'usdc' | 'usdt' | 'dai' | 'pyusd' | 'eurc',
         destination_address: userWalletAddress,
       };
 
@@ -438,7 +441,7 @@ export const liquidationAddressService = {
         name: 'Ethereum',
         displayName: 'Ethereum (ERC-20)',
         chain: 'ethereum',
-        supportedCurrencies: ['usdc', 'usdt', 'usdb'],
+        supportedCurrencies: ['usdc', 'usdt', 'dai'],
         icon: 'Ξ',
         iconColor: '#FFFFFF',
         backgroundColor: '#627EEA',
@@ -462,6 +465,56 @@ export const liquidationAddressService = {
         icon: '✦',
         iconColor: '#FFFFFF',
         backgroundColor: '#14C6FF',
+      },
+      {
+        id: 'arbitrum',
+        name: 'Arbitrum',
+        displayName: 'Arbitrum One',
+        chain: 'arbitrum',
+        supportedCurrencies: ['usdc', 'usdt'],
+        icon: '⟠',
+        iconColor: '#FFFFFF',
+        backgroundColor: '#28A0F0',
+      },
+      {
+        id: 'avalanche_c_chain',
+        name: 'Avalanche',
+        displayName: 'Avalanche C-Chain',
+        chain: 'avalanche_c_chain',
+        supportedCurrencies: ['usdc', 'usdt'],
+        icon: '❄',
+        iconColor: '#FFFFFF',
+        backgroundColor: '#E84142',
+      },
+      {
+        id: 'base',
+        name: 'Base',
+        displayName: 'Base',
+        chain: 'base',
+        supportedCurrencies: ['usdc', 'usdt'],
+        icon: '🔵',
+        iconColor: '#FFFFFF',
+        backgroundColor: '#0052FF',
+      },
+      {
+        id: 'optimism',
+        name: 'Optimism',
+        displayName: 'Optimism',
+        chain: 'optimism',
+        supportedCurrencies: ['usdc', 'usdt'],
+        icon: '🔴',
+        iconColor: '#FFFFFF',
+        backgroundColor: '#FF0420',
+      },
+      {
+        id: 'tron',
+        name: 'TRON',
+        displayName: 'TRON',
+        chain: 'tron',
+        supportedCurrencies: ['usdc', 'usdt'],
+        icon: '⚡',
+        iconColor: '#FFFFFF',
+        backgroundColor: '#FF0000',
       },
     ];
   },

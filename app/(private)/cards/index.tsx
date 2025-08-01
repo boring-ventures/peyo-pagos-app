@@ -4,6 +4,7 @@ import {
     CardError,
     CardLoading,
 } from "@/app/components/cards";
+import { CardSyncButton } from "@/app/components/cards/CardSyncButton";
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
@@ -181,6 +182,13 @@ export default function CardsScreen() {
           )}
         </View>
 
+        {/* Sync Button */}
+        {user && (
+          <View style={styles.syncSection}>
+            <CardSyncButton profileId={user.id} />
+          </View>
+        )}
+
         {/* Info Section */}
         {activeCards.length > 0 && (
           <View style={styles.infoSection}>
@@ -278,6 +286,10 @@ const styles = StyleSheet.create({
   },
   cardSpacing: {
     marginTop: 16,
+  },
+  syncSection: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   infoSection: {
     paddingHorizontal: 20,

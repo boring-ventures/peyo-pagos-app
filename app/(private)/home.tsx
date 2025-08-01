@@ -1,6 +1,7 @@
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
+import { useDepositNavigation } from "@/app/hooks/useDepositNavigation";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
 // TanStack Query hooks - uncomment to use automatic refresh every minute
 import { useBalanceQuery, useTransactionsQuery } from "@/app/hooks/queries";
@@ -30,7 +31,8 @@ const virtualAccounts = [
 ];
 
 export default function HomeScreen() {
-  const { user, profile, isAuthenticated, userTag, loadUserTag } = useAuthStore();
+  const { navigateToCurrencySelection } = useDepositNavigation();
+  const { user, profile, userTag, loadUserTag } = useAuthStore();
   const {
     balanceData,
     transactions,
@@ -203,7 +205,7 @@ export default function HomeScreen() {
   };
 
   const handleDeposit = () => {
-    router.push("/(private)/deposit/currency-selection");
+    navigateToCurrencySelection();
   };
 
   const handleBalanceErrorRetry = () => {
@@ -424,16 +426,44 @@ export default function HomeScreen() {
               <View style={styles.transfersList}>
                 {transactions.map((t, idx) => (
                   <View key={t.id} style={styles.transferItem}>
-                    <Text style={styles.transferFlag}>{t.flagIcon}</Text>
-                    <ThemedText style={styles.transferName}>{t.counterparty}</ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.transferAmount,
-                        { color: t.positive ? successColor : errorColor },
-                      ]}
-                    >
-                      {t.amount}
-                    </ThemedText>
+                    <View style={styles.transferLeftSection}>
+                      <Text style={styles.transferFlag}>{t.flagIcon}</Text>
+                      <View style={styles.transferDetails}>
+                        <ThemedText style={styles.transferName}>{t.counterparty}</ThemedText>
+                        <View style={styles.transferMeta}>
+                          <ThemedText style={[styles.transferTime, { color: subtextColor }]}>
+                            {t.timeAgo}
+                          </ThemedText>
+                          {t.isCrossChain && (
+                            <View style={styles.crossChainBadge}>
+                              <ThemedText style={styles.crossChainText}>Bridge</ThemedText>
+                            </View>
+                          )}
+                          <View style={[styles.statusBadge, { 
+                            backgroundColor: t.status === 'Confirmada' ? successColor + '20' : tintColor + '20' 
+                          }]}>
+                            <ThemedText style={[styles.statusText, { 
+                              color: t.status === 'Confirmada' ? successColor : tintColor 
+                            }]}>
+                              {t.status}
+                            </ThemedText>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.transferRightSection}>
+                      <ThemedText
+                        style={[
+                          styles.transferAmount,
+                          { color: t.positive ? successColor : errorColor },
+                        ]}
+                      >
+                        {t.amount}
+                      </ThemedText>
+                      <ThemedText style={[styles.transferDate, { color: subtextColor }]}>
+                        {t.formattedDate} • {t.formattedTime}
+                      </ThemedText>
+                    </View>
                   </View>
                 ))}
               </View>
@@ -593,22 +623,68 @@ const styles = StyleSheet.create({
   transferItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: "#E1E8EA",
   },
+  transferLeftSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
   transferFlag: {
     fontSize: 22,
-    marginRight: 10,
+  },
+  transferDetails: {
+    marginLeft: 10,
   },
   transferName: {
     fontSize: 16,
     fontWeight: "500",
-    flex: 1,
+  },
+  transferMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    gap: 6,
+  },
+  transferTime: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  crossChainBadge: {
+    backgroundColor: "#E0F2F7",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  crossChainText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4A90E2",
+  },
+  statusBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  transferRightSection: {
+    alignItems: "flex-end",
   },
   transferAmount: {
     fontSize: 16,
     fontWeight: "700",
+  },
+  transferDate: {
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: "500",
   },
   transactionErrorContainer: {
     alignItems: "center",

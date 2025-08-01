@@ -1,13 +1,14 @@
 import { useThemeColor } from '@/app/hooks/useThemeColor';
+import { moonService } from '@/app/services/moonService';
 import { useAuthStore } from '@/app/store/authStore';
 import { useCardStore } from '@/app/store/cardStore';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    StyleSheet,
-    View,
+  Alert,
+  Dimensions,
+  StyleSheet,
+  View,
 } from 'react-native';
 import { ThemedButton } from '../ThemedButton';
 import { ThemedText } from '../ThemedText';
@@ -26,6 +27,8 @@ const CARD_HEIGHT = CARD_WIDTH * 0.63;
 export function CardCreation({ onCardCreated, style, cardProductId, cardProductName }: CardCreationProps) {
   const { user, profile } = useAuthStore();
   const { createCard, isCreatingCard, createCardError, clearCreateCardError } = useCardStore();
+  const [isCheckingBalance, setIsCheckingBalance] = useState(false);
+  const [moonBalance, setMoonBalance] = useState<number | null>(null);
   
   const cardBackground = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
@@ -37,14 +40,68 @@ export function CardCreation({ onCardCreated, style, cardProductId, cardProductN
   // Use the provided cardProductId or fallback to default
   const productId = cardProductId || process.env.EXPO_PUBLIC_MOON_CARD_PRODUCT_ID || 'default-card-product';
 
+  // Check Moon Reserve balance on component mount
+  useEffect(() => {
+    const checkMoonBalance = async () => {
+      try {
+        console.log('🌙 Auto-checking Moon Reserve balance...');
+        const balanceResult = await moonService.getMoonReserveBalance();
+        
+        if (balanceResult.success && balanceResult.data) {
+          setMoonBalance(balanceResult.data.balance);
+          console.log('✅ Auto-check Moon Reserve balance:', balanceResult.data.balance);
+        } else {
+          console.warn('⚠️ Auto-check Moon Reserve balance failed:', balanceResult.error);
+        }
+      } catch (error) {
+        console.error('❌ Auto-check Moon Reserve balance error:', error);
+      }
+    };
+
+    checkMoonBalance();
+  }, []);
+
   const handleCreateCard = async () => {
     if (!user || !profile) {
       Alert.alert('Error', 'No se pudo obtener la información del usuario');
       return;
     }
 
-    // Get the actual profile.id from profiles table (same pattern as in authStore)
     try {
+      console.log('🔄 Starting card creation process with Moon Reserve verification...');
+      console.log('👤 User ID:', user.id);
+      console.log('📋 Profile:', profile);
+      console.log('💳 Product ID:', productId);
+      
+      // Step 1: Check Moon Reserve balance
+      setIsCheckingBalance(true);
+      console.log('🌙 Checking Moon Reserve balance...');
+      
+      const balanceResult = await moonService.getMoonReserveBalance();
+      
+      if (!balanceResult.success || !balanceResult.data) {
+        console.error('❌ Failed to get Moon Reserve balance:', balanceResult.error);
+        Alert.alert('Error', 'No se pudo verificar el balance de Moon Reserve');
+        return;
+      }
+
+      const balance = balanceResult.data.balance;
+      setMoonBalance(balance);
+      console.log('✅ Moon Reserve balance:', balance);
+      
+      // Check if there's sufficient balance (you can adjust this threshold)
+      const minimumBalance = 1.0; // Minimum $1.00 required
+      if (balance < minimumBalance) {
+        Alert.alert(
+          'Balance Insuficiente',
+          `El balance de Moon Reserve ($${balance.toFixed(2)}) es insuficiente para crear una tarjeta. Se requiere un mínimo de $${minimumBalance.toFixed(2)}.`
+        );
+        return;
+      }
+
+      setIsCheckingBalance(false);
+      
+      // Step 2: Get profile ID
       const { supabaseAdmin } = await import('@/app/services/supabaseAdmin');
       const { data: profileData, error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -63,12 +120,23 @@ export function CardCreation({ onCardCreated, style, cardProductId, cardProductN
 
       clearCreateCardError();
 
-      const result = await createCard(profileId, productId);
+      console.log('🚀 Calling createCard with:', { profileId, productId, userId: user.id });
+      
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: Card creation took too long')), 30000);
+      });
+      
+      const createCardPromise = createCard(profileId, productId, user.id);
+      const result = await Promise.race([createCardPromise, timeoutPromise]) as any;
+      
+      console.log('📊 Create card result:', result);
       
       if (result.success && result.card) {
+        console.log('✅ Card created successfully:', result.card.id);
         Alert.alert(
           '¡Tarjeta creada!',
-          'Tu tarjeta de débito virtual ha sido creada exitosamente.',
+          `Tu tarjeta de débito virtual ha sido creada exitosamente.\n\nBalance de Moon Reserve: $${balance.toFixed(2)}`,
           [
             {
               text: 'Ver tarjeta',
@@ -77,14 +145,23 @@ export function CardCreation({ onCardCreated, style, cardProductId, cardProductN
           ]
         );
       } else {
+        console.error('❌ Card creation failed:', result.error);
         Alert.alert(
           'Error',
           result.error || 'No se pudo crear la tarjeta. Inténtalo de nuevo.'
         );
       }
     } catch (error) {
-      console.error('❌ Error in handleCreateCard:', error);
-      Alert.alert('Error', 'Error inesperado al crear la tarjeta');
+      setIsCheckingBalance(false);
+      console.error('💥 Unexpected error in handleCreateCard:', error);
+      console.error('💥 Error stack:', error instanceof Error ? error.stack : 'No stack available');
+      
+      // Check if it's a timeout error
+      if (error instanceof Error && error.message.includes('Timeout')) {
+        Alert.alert('Error', 'La creación de la tarjeta tardó demasiado. Inténtalo de nuevo.');
+      } else {
+        Alert.alert('Error', 'Error inesperado al crear la tarjeta');
+      }
     }
   };
 
@@ -101,8 +178,8 @@ export function CardCreation({ onCardCreated, style, cardProductId, cardProductN
         
         <ThemedText style={[styles.description, { color: subtextColor }]}>
           {cardProductName 
-            ? `Crea tu ${cardProductName.toLowerCase()} para hacer compras en línea y retirar efectivo en cajeros automáticos.`
-            : 'Crea tu tarjeta de débito virtual para hacer compras en línea y retirar efectivo en cajeros automáticos.'
+            ? `Crea tu ${cardProductName.toLowerCase()} usando el balance de Moon Reserve para hacer compras en línea y retirar efectivo en cajeros automáticos.`
+            : 'Crea tu tarjeta de débito virtual usando el balance de Moon Reserve para hacer compras en línea y retirar efectivo en cajeros automáticos.'
           }
         </ThemedText>
 
@@ -127,6 +204,13 @@ export function CardCreation({ onCardCreated, style, cardProductId, cardProductN
               Control total desde la app
             </ThemedText>
           </View>
+
+          <View style={styles.featureItem}>
+            <Ionicons name="moon" size={16} color={tintColor} />
+            <ThemedText style={[styles.featureText, { color: textColor }]}>
+              Fondos desde Moon Reserve
+            </ThemedText>
+          </View>
         </View>
 
         {createCardError && (
@@ -138,10 +222,26 @@ export function CardCreation({ onCardCreated, style, cardProductId, cardProductN
           </View>
         )}
 
+        {/* Moon Reserve Balance Display */}
+        {moonBalance !== null && (
+          <View style={[styles.balanceContainer, { backgroundColor: `${tintColor}20` }]}>
+            <Ionicons name="wallet" size={16} color={tintColor} />
+            <ThemedText style={[styles.balanceText, { color: tintColor }]}>
+              Balance Moon Reserve: ${moonBalance.toFixed(2)}
+            </ThemedText>
+          </View>
+        )}
+
         <ThemedButton
-          title={isCreatingCard ? "Creando tarjeta..." : "Crear tarjeta"}
+          title={
+            isCheckingBalance 
+              ? "Verificando balance..." 
+              : isCreatingCard 
+                ? "Creando tarjeta..." 
+                : "Crear tarjeta"
+          }
           type="primary"
-          loading={isCreatingCard}
+          loading={isCheckingBalance || isCreatingCard}
           onPress={handleCreateCard}
           style={styles.createButton}
         />
@@ -212,5 +312,19 @@ const styles = StyleSheet.create({
   createButton: {
     alignSelf: 'stretch',
     marginTop: 8,
+  },
+  balanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignSelf: 'stretch',
+    marginTop: 16,
+  },
+  balanceText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 

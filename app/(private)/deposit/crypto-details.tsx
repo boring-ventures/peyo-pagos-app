@@ -1,14 +1,16 @@
 import { ThemedButton } from "@/app/components/ThemedButton";
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
+import { useDepositNavigation } from "@/app/hooks/useDepositNavigation";
 import { useQRCode } from "@/app/hooks/useQRCode";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
+import { bridgeService } from "@/app/services/bridgeService";
 import { liquidationAddressService } from "@/app/services/liquidationAddressService";
 import { useAuthStore } from "@/app/store/authStore";
 import { useBridgeStore } from "@/app/store/bridgeStore";
 import { useLiquidationAddressStore } from "@/app/store/liquidationAddressStore";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -27,7 +29,7 @@ import { SvgXml } from "react-native-svg";
 const { width: screenWidth } = Dimensions.get("window");
 
 export default function CryptoDetailsScreen() {
-  const router = useRouter();
+  const { navigateToNetworkSelection } = useDepositNavigation();
   const params = useLocalSearchParams();
   const textColor = useThemeColor({}, "text");
   const subtextColor = useThemeColor({}, "textSecondary");
@@ -55,6 +57,7 @@ export default function CryptoDetailsScreen() {
     getOrCreateDepositAddress,
     refreshAddress,
     clearError,
+    clearCurrentData,
     debugClearAllCache,
     debugGetCacheInfo,
   } = useLiquidationAddressStore();
@@ -228,6 +231,28 @@ export default function CryptoDetailsScreen() {
         walletsAvailable: wallets?.length || 0,
       });
 
+      // Check if the combination is supported by Bridge.xyz
+      const isSupported = bridgeService.isLiquidationPairSupported(
+        chain,
+        cryptoType,
+        'solana', // Always liquidate to Solana
+        'usdc'    // Always liquidate to USDC
+      );
+
+      if (!isSupported) {
+        const supportedPairs = bridgeService.getSupportedLiquidationPairs(chain);
+        const errorMessage = `La combinación ${cryptoName} (${networkName}) no está soportada por Bridge.xyz para liquidación a Solana USDC. ` +
+          `Para ${networkName}, las opciones soportadas son: ${supportedPairs.map(p => p.currency.toUpperCase()).join(', ')}`;
+        
+        console.error("❌ Unsupported liquidation pair:", errorMessage);
+        setInitializationStatus("error");
+        setLiquidationAddressLoaded(false);
+        // Set error in store
+        useLiquidationAddressStore.getState().clearError();
+        useLiquidationAddressStore.setState({ error: errorMessage });
+        return;
+      }
+
       setLiquidationAddressLoaded(true); // Set flag immediately to prevent re-runs
 
       if (!user?.id || !bridgeCustomerId || !wallets?.length) {
@@ -352,13 +377,15 @@ export default function CryptoDetailsScreen() {
       hasWallets,
       liquidationAddressLoaded,
       currentAddress,
+      isLoading,
     });
 
     if (
       initializationStatus === "ready" &&
       hasWallets &&
       !liquidationAddressLoaded &&
-      !currentAddress
+      !currentAddress &&
+      !isLoading
     ) {
       console.log("🎯 Triggering liquidation address load");
       loadLiquidationAddress();
@@ -368,13 +395,17 @@ export default function CryptoDetailsScreen() {
     hasWallets,
     liquidationAddressLoaded,
     currentAddress,
+    isLoading,
   ]); // Removed loadLiquidationAddress from deps
 
   // Reset liquidation address loaded flag when key parameters change
   useEffect(() => {
     console.log("🔄 useEffect: resetting liquidation flag for new parameters");
     setLiquidationAddressLoaded(false);
-  }, [chain, cryptoType]);
+    // Clear current address and liquidation data when parameters change
+    clearCurrentData();
+    setQrSVG(null); // Also clear QR code
+  }, [chain, cryptoType, clearCurrentData]); // Removed problematic dependencies
 
   // Generate QR code when liquidation data is ready
   useEffect(() => {
@@ -413,7 +444,7 @@ export default function CryptoDetailsScreen() {
     };
 
     generateQRCode();
-  }, [currentLiquidationData, currentAddress, generateQR, clearQRError]);
+  }, [currentLiquidationData, currentAddress, generateQR, clearQRError, textColor, backgroundColor]);
 
   const handleRetry = useCallback(async () => {
     if (retryAttempts >= maxRetries) {
@@ -567,8 +598,8 @@ export default function CryptoDetailsScreen() {
   }, [currentAddress, currentLiquidationData, cryptoName, networkName]);
 
   const handleBackPress = useCallback(() => {
-    router.back();
-  }, [router]);
+    navigateToNetworkSelection(cryptoType, cryptoName);
+  }, [navigateToNetworkSelection, cryptoType, cryptoName]);
 
   // Generate complete QR data with all liquidation address details
   const generateCompleteQRData = useCallback((): string => {
@@ -616,6 +647,9 @@ export default function CryptoDetailsScreen() {
     initializationStatus === "ready" &&
     !isLoadingLiquidation &&
     !renderError;
+
+  // Show loading state when any loading is happening or when we don't have data yet
+  const shouldShowLoading = isInitializing || isLoadingLiquidation || (!currentAddress && !hasInitializationError);
 
   // Safe address formatting
   const formattedAddress = useMemo(() => {
@@ -681,40 +715,48 @@ export default function CryptoDetailsScreen() {
           </View>
 
           {/* Initialization Status */}
-          {initializationStatus === "checking" && (
+          {shouldShowLoading && (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={tintColor} />
               <ThemedText style={[styles.loadingText, { color: subtextColor }]}>
-                Verificando datos de usuario...
-              </ThemedText>
-            </View>
-          )}
-
-          {initializationStatus === "loading_wallets" && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={tintColor} />
-              <ThemedText style={[styles.loadingText, { color: subtextColor }]}>
-                Cargando wallets de Bridge...
+                {initializationStatus === "checking"
+                  ? "Verificando datos de usuario..."
+                  : initializationStatus === "loading_wallets"
+                  ? "Cargando wallets de Bridge..."
+                  : isLoadingLiquidation
+                  ? "Generando dirección de depósito..."
+                  : "Cargando..."}
               </ThemedText>
               <ThemedText
                 style={[styles.loadingSubtext, { color: subtextColor }]}
               >
-                Esto puede tomar unos segundos
+                {initializationStatus === "checking"
+                  ? "Esto puede tomar unos segundos"
+                  : initializationStatus === "loading_wallets"
+                  ? "Esto puede tomar unos segundos"
+                  : isLoadingLiquidation
+                  ? "Configurando liquidation address"
+                  : "Por favor espera..."}
               </ThemedText>
-            </View>
-          )}
-
-          {initializationStatus === "loading_address" && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={tintColor} />
-              <ThemedText style={[styles.loadingText, { color: subtextColor }]}>
-                Generando dirección de depósito...
-              </ThemedText>
-              <ThemedText
-                style={[styles.loadingSubtext, { color: subtextColor }]}
-              >
-                Configurando liquidation address
-              </ThemedText>
+              
+              {/* Show progress indicator */}
+              <View style={styles.progressContainer}>
+                <View style={[styles.progressStep, initializationStatus !== "checking" && styles.progressStepCompleted]}>
+                  <ThemedText style={[styles.progressText, { color: subtextColor }]}>
+                    1. Verificar datos
+                  </ThemedText>
+                </View>
+                <View style={[styles.progressStep, initializationStatus === "loading_wallets" || initializationStatus === "loading_address" || initializationStatus === "ready" ? styles.progressStepCompleted : styles.progressStepPending]}>
+                  <ThemedText style={[styles.progressText, { color: subtextColor }]}>
+                    2. Cargar wallets
+                  </ThemedText>
+                </View>
+                <View style={[styles.progressStep, initializationStatus === "loading_address" || initializationStatus === "ready" ? styles.progressStepCompleted : styles.progressStepPending]}>
+                  <ThemedText style={[styles.progressText, { color: subtextColor }]}>
+                    3. Generar dirección
+                  </ThemedText>
+                </View>
+              </View>
             </View>
           )}
 
@@ -738,7 +780,52 @@ export default function CryptoDetailsScreen() {
                 >
                   {error || "No se pudieron cargar los datos necesarios"}
                 </ThemedText>
-                {initializationStatus === "error" && (
+                {error && error.includes("no está soportada") && (
+                  <View style={styles.unsupportedInfo}>
+                    <ThemedText
+                      style={[styles.unsupportedTitle, { color: errorColor }]}
+                    >
+                      💡 Información importante:
+                    </ThemedText>
+                    <ThemedText
+                      style={[styles.unsupportedText, { color: subtextColor }]}
+                    >
+                      Bridge.xyz tiene limitaciones en las combinaciones de criptomonedas y redes que soporta. 
+                      Para depósitos en {networkName}, considera usar las opciones disponibles.
+                    </ThemedText>
+                    
+                    {/* Show alternative options */}
+                    <View style={styles.alternativesContainer}>
+                      <ThemedText
+                        style={[styles.alternativesTitle, { color: subtextColor }]}
+                      >
+                        Opciones disponibles para {networkName}:
+                      </ThemedText>
+                      {(() => {
+                        const supportedPairs = bridgeService.getSupportedLiquidationPairs(chain);
+                        return supportedPairs.map((pair, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={[
+                              styles.alternativeOption,
+                              { backgroundColor: "rgba(76, 175, 80, 0.1)", borderColor: "#4CAF50" }
+                            ]}
+                            onPress={() => {
+                              // Navigate to network selection with the supported option
+                              navigateToNetworkSelection(pair.currency, pair.currency.toUpperCase());
+                            }}
+                          >
+                            <ThemedText style={[styles.alternativeText, { color: "#4CAF50" }]}>
+                              {pair.currency.toUpperCase()} en {networkName}
+                            </ThemedText>
+                            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                          </TouchableOpacity>
+                        ));
+                      })()}
+                    </View>
+                  </View>
+                )}
+                {initializationStatus === "error" && !error?.includes("no está soportada") && (
                   <ThemedText
                     style={[styles.errorDetails, { color: subtextColor }]}
                   >
@@ -831,6 +918,15 @@ export default function CryptoDetailsScreen() {
                         </ThemedText>
                       </TouchableOpacity>
                     </View>
+                  ) : currentAddress && currentLiquidationData ? (
+                    <View style={styles.qrLoadingContainer}>
+                      <ActivityIndicator size="small" color={tintColor} />
+                      <ThemedText
+                        style={[styles.qrLoadingText, { color: subtextColor }]}
+                      >
+                        Preparando código QR...
+                      </ThemedText>
+                    </View>
                   ) : (
                     <View style={styles.qrErrorContainer}>
                       <Ionicons name="qr-code" size={64} color={subtextColor} />
@@ -889,6 +985,11 @@ export default function CryptoDetailsScreen() {
                       style={[styles.qrDataText, { color: subtextColor }]}
                     >
                       • Mínimo: $1.00 USD
+                    </ThemedText>
+                    <ThemedText
+                      style={[styles.qrDataText, { color: subtextColor }]}
+                    >
+                      • Liquidación: Solana USDC
                     </ThemedText>
                   </View>
                 </View>
@@ -976,6 +1077,25 @@ export default function CryptoDetailsScreen() {
                       Mínimo a depositar
                     </ThemedText>
                     <ThemedText style={styles.infoValue}>$1.00 USD</ThemedText>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <View style={styles.infoItem}>
+                    <ThemedText
+                      style={[styles.infoLabel, { color: subtextColor }]}
+                    >
+                      Destino de liquidación
+                    </ThemedText>
+                    <ThemedText style={styles.infoValue}>Solana USDC</ThemedText>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <ThemedText
+                      style={[styles.infoLabel, { color: subtextColor }]}
+                    >
+                      Estado
+                    </ThemedText>
+                    <ThemedText style={styles.infoValue}>Activo</ThemedText>
                   </View>
                 </View>
               </View>
@@ -1339,5 +1459,78 @@ const styles = StyleSheet.create({
     height: 200,
     justifyContent: "center",
     alignItems: "center",
+  },
+  unsupportedInfo: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: "rgba(255, 107, 107, 0.1)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FF6B6B",
+  },
+  unsupportedTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  unsupportedText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  alternativesContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: "rgba(76, 175, 80, 0.1)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#4CAF50",
+  },
+  alternativesTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  alternativeOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  alternativeText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  progressContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+    marginTop: 20,
+  },
+  progressStep: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  progressStepCompleted: {
+    backgroundColor: "rgba(76, 175, 80, 0.2)",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: "#4CAF50",
+  },
+  progressStepPending: {
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: "500",
   },
 });

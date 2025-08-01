@@ -108,20 +108,41 @@ export const moonService = {
   /**
    * Create a new card
    * @param cardProductId - The card product ID to create
+   * @param endCustomerId - The end customer ID (profile ID)
+   * @param amount - The amount to load on the card (should be within product limits)
    */
-  createCard: async (cardProductId: string): Promise<{
+  createCard: async (
+    cardProductId: string, 
+    endCustomerId: string,
+    amount: number
+  ): Promise<{
     success: boolean;
     data?: MoonCardData;
     error?: string;
   }> => {
     try {
       console.log('💳 Creating Moon card with product ID:', cardProductId);
+      console.log('👤 End customer ID:', endCustomerId);
+      console.log('💰 Amount:', amount);
+      
+      const requestBody: any = {
+        amount: amount,
+        card_type: "VIRTUAL",
+        card_currency: "USD"
+      };
+
+      // Only add end_customer_id if provided (test if it's optional)
+      if (endCustomerId) {
+        requestBody.end_customer_id = endCustomerId;
+      }
+
+      console.log('📦 Request body:', JSON.stringify(requestBody, null, 2));
       
       const response = await moonRequest<MoonCardResponse>(
         `/v1/api-gateway/card/${encodeURIComponent(cardProductId)}`,
         {
           method: 'POST',
-          body: JSON.stringify({}), // Moon API expects empty body for card creation
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -380,6 +401,103 @@ export const moonService = {
       return !response.error;
     } catch {
       return false;
+    }
+  },
+
+  /**
+   * Get Moon Reserve balance
+   * GET /v1/api-gateway/moon-reserve
+   */
+  getMoonReserveBalance: async (): Promise<{
+    success: boolean;
+    data?: { balance: number };
+    error?: string;
+  }> => {
+    try {
+      console.log('🌙 Getting Moon Reserve balance...');
+
+      const response = await fetch(`${MOON_API_BASE_URL}/v1/api-gateway/moon-reserve`, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'x-api-key': MOON_API_KEY,
+        },
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Moon API: Failed to get reserve balance:', response.status, responseData);
+        return {
+          success: false,
+          error: responseData.message || `HTTP ${response.status}: ${response.statusText}`,
+        };
+      }
+
+      console.log('✅ Moon API: Reserve balance retrieved successfully:', responseData);
+      return {
+        success: true,
+        data: responseData,
+      };
+    } catch (error) {
+      console.error('❌ Moon API: Error getting reserve balance:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  },
+
+  /**
+   * Get all cards from Moon
+   * GET /v1/api-gateway/card?page=1&limit=10
+   */
+  getAllCards: async (page: number = 1, limit: number = 10): Promise<{
+    success: boolean;
+    data?: {
+      cards: MoonCardData[];
+      pagination: {
+        current_page: number;
+        from: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+      };
+    };
+    error?: string;
+  }> => {
+    try {
+      console.log('💳 Getting all Moon cards...');
+
+      const response = await fetch(`${MOON_API_BASE_URL}/v1/api-gateway/card?page=${page}&limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'x-api-key': MOON_API_KEY,
+        },
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Moon API: Failed to get cards:', response.status, responseData);
+        return {
+          success: false,
+          error: responseData.message || `HTTP ${response.status}: ${response.statusText}`,
+        };
+      }
+
+      console.log('✅ Moon API: Cards retrieved successfully:', responseData);
+      return {
+        success: true,
+        data: responseData,
+      };
+    } catch (error) {
+      console.error('❌ Moon API: Error getting cards:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
     }
   },
 }; 

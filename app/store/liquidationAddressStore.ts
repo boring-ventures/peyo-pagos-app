@@ -50,6 +50,9 @@ interface LiquidationAddressState {
   clearError: () => void;
   reset: () => void;
   
+  // Clear current data for new parameters
+  clearCurrentData: () => void;
+  
   // Utility methods
   getCacheKey: (customerId: string, chain: string, currency: string) => string;
   getFormattedAddress: (address: string) => string;
@@ -269,6 +272,14 @@ export const useLiquidationAddressStore = create<LiquidationAddressState>((set, 
   // Clear error state
   clearError: () => {
     set({ error: null });
+  },
+  
+  // Clear current data for new parameters
+  clearCurrentData: () => {
+    set({
+      currentAddress: null,
+      currentLiquidationData: null,
+    });
   },
   
   // Reset all state

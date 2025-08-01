@@ -1,17 +1,17 @@
 import * as AuthSession from 'expo-auth-session';
 import Constants from "expo-constants";
 import {
-  BridgeApiResponse,
-  BridgeCreateCustomerResponse,
-  BridgeCustomer,
-  BridgeCustomerRequest,
-  BridgeDocumentType,
-  BridgeGetCustomerResponse,
-  BridgeLiquidationAddress,
-  BridgeTosLinkResponse,
-  BridgeTosResponse,
-  CreateLiquidationAddressParams,
-  KycProfileForBridge
+    BridgeApiResponse,
+    BridgeCreateCustomerResponse,
+    BridgeCustomer,
+    BridgeCustomerRequest,
+    BridgeDocumentType,
+    BridgeGetCustomerResponse,
+    BridgeLiquidationAddress,
+    BridgeTosLinkResponse,
+    BridgeTosResponse,
+    CreateLiquidationAddressParams,
+    KycProfileForBridge
 } from "../types/BridgeTypes";
 
 // Bridge API Configuration
@@ -1059,6 +1059,83 @@ export const bridgeService = {
    */
   isConfigured: (): boolean => {
     return !!BRIDGE_API_KEY && !!BRIDGE_API_URL;
+  },
+
+  /**
+   * Check if a crypto-to-crypto liquidation pair is supported by Bridge.xyz
+   */
+  isLiquidationPairSupported: (
+    chain: string,
+    currency: string,
+    destinationPaymentRail: string,
+    destinationCurrency: string
+  ): boolean => {
+    // Bridge.xyz supported chains and currencies based on API documentation
+    const supportedChains = [
+      'arbitrum',
+      'avalanche_c_chain', 
+      'base',
+      'ethereum',
+      'optimism',
+      'polygon',
+      'solana',
+      'stellar',
+      'tron'
+    ];
+
+    const supportedCurrencies = [
+      'usdb',
+      'usdc', 
+      'usdt',
+      'dai',
+      'pyusd',
+      'eurc'
+    ];
+
+    // Check if both chains and currencies are supported
+    const isChainSupported = supportedChains.includes(chain);
+    const isCurrencySupported = supportedCurrencies.includes(currency);
+    const isDestinationRailSupported = supportedChains.includes(destinationPaymentRail);
+    const isDestinationCurrencySupported = supportedCurrencies.includes(destinationCurrency);
+
+    return isChainSupported && isCurrencySupported && isDestinationRailSupported && isDestinationCurrencySupported;
+  },
+
+  /**
+   * Get supported liquidation pairs for a given chain
+   */
+  getSupportedLiquidationPairs: (chain: string): Array<{
+    currency: string;
+    destinationPaymentRail: string;
+    destinationCurrency: string;
+  }> => {
+    // For now, we'll focus on the main chains you mentioned
+    const mainChains = ['solana', 'ethereum', 'stellar', 'polygon'];
+    
+    if (!mainChains.includes(chain)) {
+      return [];
+    }
+
+    // Default destination is always Solana USDC
+    const defaultDestination = {
+      destinationPaymentRail: 'solana',
+      destinationCurrency: 'usdc'
+    };
+
+    // Supported currencies for each chain
+    const supportedCurrencies = {
+      solana: ['usdc', 'usdt'],
+      ethereum: ['usdc', 'usdt', 'dai'],
+      stellar: ['usdc'],
+      polygon: ['usdc', 'usdt']
+    };
+
+    const currencies = supportedCurrencies[chain as keyof typeof supportedCurrencies] || [];
+
+    return currencies.map(currency => ({
+      currency,
+      ...defaultDestination
+    }));
   },
 
   /**

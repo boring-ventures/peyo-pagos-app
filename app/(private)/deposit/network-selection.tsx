@@ -1,9 +1,10 @@
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
+import { useDepositNavigation } from "@/app/hooks/useDepositNavigation";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
 import { liquidationAddressService } from "@/app/services/liquidationAddressService";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -27,7 +28,7 @@ interface NetworkOption {
 }
 
 export default function NetworkSelectionScreen() {
-  const router = useRouter();
+  const { navigateToCurrencySelection, navigateToCryptoDetails } = useDepositNavigation();
   const params = useLocalSearchParams();
   const textColor = useThemeColor({}, "text");
   const subtextColor = useThemeColor({}, "textSecondary");
@@ -36,9 +37,9 @@ export default function NetworkSelectionScreen() {
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
 
-  // Since crypto-selection is bypassed, we only support USDC
-  const cryptoType = "usdc";
-  const cryptoName = "USDC";
+  // Get crypto type from params or default to USDC
+  const cryptoType = (params.cryptoType as string) || "usdc";
+  const cryptoName = (params.cryptoName as string) || "USDC";
 
   // Network options state
   const [networkOptions, setNetworkOptions] = useState<NetworkOption[]>([]);
@@ -52,9 +53,9 @@ export default function NetworkSelectionScreen() {
         
         const supportedNetworks = liquidationAddressService.getSupportedNetworks();
         
-        // Filter networks that support USDC and convert to NetworkOption format
+        // Filter networks that support the selected crypto and convert to NetworkOption format
         const networkOptionsWithSelection = supportedNetworks
-          .filter(network => network.supportedCurrencies.includes('usdc'))
+          .filter(network => network.supportedCurrencies.includes(cryptoType))
           .map((network, index) => ({
             id: network.id,
             name: network.name,
@@ -70,7 +71,7 @@ export default function NetworkSelectionScreen() {
         setNetworkOptions(networkOptionsWithSelection);
         setIsLoading(false);
         
-        console.log(`✅ Loaded ${networkOptionsWithSelection.length} supported networks`);
+        console.log(`✅ Loaded ${networkOptionsWithSelection.length} supported networks for ${cryptoType}`);
       } catch (error) {
         console.error('❌ Error loading supported networks:', error);
         setIsLoading(false);
@@ -78,7 +79,7 @@ export default function NetworkSelectionScreen() {
     };
 
     loadSupportedNetworks();
-  }, []);
+  }, [cryptoType]);
 
   const handleNetworkSelect = (selectedNetwork: NetworkOption) => {
     // Update selection state
@@ -91,20 +92,17 @@ export default function NetworkSelectionScreen() {
     console.log(`🔗 Selected network: ${selectedNetwork.displayName} (${selectedNetwork.chain})`);
 
     // Navigate to crypto deposit details
-    router.push({
-      pathname: "/(private)/deposit/crypto-details",
-      params: {
-        cryptoType,
-        cryptoName,
-        networkType: selectedNetwork.id,
-        networkName: selectedNetwork.displayName,
-        chain: selectedNetwork.chain,
-      },
-    });
+    navigateToCryptoDetails(
+      cryptoType,
+      cryptoName,
+      selectedNetwork.id,
+      selectedNetwork.displayName,
+      selectedNetwork.chain
+    );
   };
 
   const handleBackPress = () => {
-    router.back();
+    navigateToCurrencySelection();
   };
 
   if (isLoading) {

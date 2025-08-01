@@ -17,6 +17,14 @@ export interface TransactionDisplay {
   currency: string;
   flagIcon: string;
   positive: boolean;
+  // New fields for enhanced display
+  formattedDate: string;
+  formattedTime: string;
+  timeAgo: string;
+  sourceChain?: string;
+  destinationChain?: string;
+  isCrossChain: boolean;
+  status: string;
 }
 
 /**
@@ -128,22 +136,29 @@ export const walletBalanceService = {
       }
 
       const transactions = transactionsResponse.data || [];
+      console.log('💰 Transactions:', transactions);
       console.log(`📋 Processing ${transactions.length} transactions for display`);
 
       // If no transactions, return informative empty state
       if (transactions.length === 0) {
+        const now = new Date();
         return {
           success: true,
           data: [
             {
               id: 'empty_1',
-              counterparty: 'Sin transacciones aún',
+              counterparty: 'No hay transacciones recientes',
               amount: '--',
               direction: 'incoming',
-              timestamp: new Date().toISOString(),
+              timestamp: now.toISOString(),
               currency: 'USDC',
               flagIcon: '💰',
               positive: true,
+              formattedDate: formatDate(now),
+              formattedTime: formatTime(now),
+              timeAgo: 'ahora',
+              isCrossChain: false,
+              status: '--',
             },
           ],
         };
@@ -151,39 +166,75 @@ export const walletBalanceService = {
 
       const formattedTransactions: TransactionDisplay[] = transactions.map((tx: any) => {
         const amount = parseFloat(tx.amount || '0');
-        const isOutgoing = tx.type === 'send' || tx.type === 'withdrawal' || amount < 0;
+        
+        // Determine transaction direction based on Bridge data structure
+        // For Bridge transactions, we need to determine if it's incoming or outgoing
+        // Since we're looking at the user's wallet transactions, positive amounts are typically incoming
+        const isOutgoing = amount < 0; // Negative amounts indicate outgoing
         const direction: 'incoming' | 'outgoing' = isOutgoing ? 'outgoing' : 'incoming';
         
-        // Determine counterparty from transaction data
-        let counterparty = 'Unknown';
-        if (tx.to?.name) {
-          counterparty = tx.to.name;
-        } else if (tx.from?.name) {
-          counterparty = tx.from.name;
-        } else if (tx.to?.address) {
-          // Truncate address for display
-          counterparty = `${tx.to.address.substring(0, 6)}...${tx.to.address.substring(tx.to.address.length - 4)}`;
-        } else if (tx.from?.address) {
-          counterparty = `${tx.from.address.substring(0, 6)}...${tx.from.address.substring(tx.from.address.length - 4)}`;
-        } else if (tx.description) {
-          counterparty = tx.description;
+        // Determine counterparty from transaction data - improved for Bridge structure
+        let counterparty = 'Transferencia';
+        
+        // Try to get meaningful counterparty information
+        if (tx.source?.payment_rail && tx.destination?.payment_rail) {
+          const sourceChain = tx.source.payment_rail.charAt(0).toUpperCase() + tx.source.payment_rail.slice(1);
+          const destChain = tx.destination.payment_rail.charAt(0).toUpperCase() + tx.destination.payment_rail.slice(1);
+          
+          if (sourceChain !== destChain) {
+            // Cross-chain transfer
+            counterparty = `Bridge ${sourceChain} → ${destChain}`;
+          } else {
+            // Same chain transfer
+            counterparty = `Transferencia ${sourceChain}`;
+          }
+        } else if (tx.walletChain) {
+          const chainName = tx.walletChain.charAt(0).toUpperCase() + tx.walletChain.slice(1);
+          counterparty = `Transferencia ${chainName}`;
+        }
+        
+        // Add more context if it's a bridge transaction
+        if (tx.source?.payment_rail && tx.destination?.payment_rail && 
+            tx.source.payment_rail !== tx.destination.payment_rail) {
+          counterparty = 'Transferencia Bridge';
         }
 
         // Format amount with direction indicator
-        const formattedAmount = `${direction === 'incoming' ? '+' : '-'}${Math.abs(amount).toFixed(2)} ${(tx.currency || 'USDC').toUpperCase()}`;
+        const formattedAmount = `${direction === 'incoming' ? '+' : '-'}${Math.abs(amount).toFixed(2)} ${(tx.destination?.currency || 'USDC').toUpperCase()}`;
 
-        // Get flag icon based on transaction data or default
+        // Get flag icon based on transaction data - improved for Bridge structure
         const flagIcon = getFlagForTransaction(tx);
 
+        // Process timestamps
+        const timestamp = tx.created_at || tx.updated_at || new Date().toISOString();
+        const transactionDate = new Date(timestamp);
+        const formattedDate = formatDate(transactionDate);
+        const formattedTime = formatTime(transactionDate);
+        const timeAgo = getTimeAgo(transactionDate);
+
+        // Determine if it's a cross-chain transaction
+        const isCrossChain = tx.source?.payment_rail && tx.destination?.payment_rail && 
+                            tx.source.payment_rail !== tx.destination.payment_rail;
+
+        // Get transaction status
+        const status = getTransactionStatus(tx.created_at || timestamp, tx.updated_at || timestamp);
+
         return {
-          id: tx.id || `tx_${Date.now()}_${Math.random()}`,
+          id: tx.walletId || tx.id || `tx_${Date.now()}_${Math.random()}`,
           counterparty,
           amount: formattedAmount,
           direction,
-          timestamp: tx.created_at || tx.confirmed_at || new Date().toISOString(),
-          currency: tx.currency || 'USDC',
+          timestamp,
+          currency: tx.destination?.currency || 'USDC',
           flagIcon,
           positive: direction === 'incoming',
+          formattedDate,
+          formattedTime,
+          timeAgo,
+          sourceChain: tx.source?.payment_rail,
+          destinationChain: tx.destination?.payment_rail,
+          isCrossChain,
+          status,
         };
       });
 
@@ -206,16 +257,22 @@ export const walletBalanceService = {
    * Get empty state data when no transactions exist
    */
   getEmptyTransactionState: (): TransactionDisplay[] => {
+    const now = new Date();
     return [
       {
         id: 'empty_1',
-        counterparty: 'Sin transacciones aún',
+        counterparty: 'No hay transacciones recientes',
         amount: '--',
         direction: 'incoming',
-        timestamp: new Date().toISOString(),
+        timestamp: now.toISOString(),
         currency: 'USDC',
         flagIcon: '💰',
         positive: true,
+        formattedDate: formatDate(now),
+        formattedTime: formatTime(now),
+        timeAgo: 'ahora',
+        isCrossChain: false,
+        status: '--',
       },
     ];
   },
@@ -232,9 +289,104 @@ function formatCurrency(amount: number): string {
 }
 
 /**
+ * Format date for display (e.g., "1 Ago", "15 Dic")
+ */
+function formatDate(date: Date): string {
+  const months = [
+    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+  ];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  return `${day} ${month}`;
+}
+
+/**
+ * Format time for display (e.g., "15:48", "09:30")
+ */
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+/**
+ * Get relative time ago (e.g., "hace 2h", "hace 5m", "hace 1d")
+ */
+function getTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+  if (diffInMinutes < 1) {
+    return 'ahora';
+  } else if (diffInMinutes < 60) {
+    return `hace ${diffInMinutes}m`;
+  } else if (diffInHours < 24) {
+    return `hace ${diffInHours}h`;
+  } else if (diffInDays < 7) {
+    return `hace ${diffInDays}d`;
+  } else {
+    return formatDate(date);
+  }
+}
+
+/**
+ * Get transaction status based on timestamps
+ */
+function getTransactionStatus(createdAt: string, updatedAt: string): string {
+  const created = new Date(createdAt);
+  const updated = new Date(updatedAt);
+  const now = new Date();
+  
+  // If updated time is significantly after created time, it's confirmed
+  const timeDiff = updated.getTime() - created.getTime();
+  if (timeDiff > 60000) { // More than 1 minute difference
+    return 'Confirmada';
+  }
+  
+  // If transaction is recent (within last 5 minutes), it might be pending
+  const recentDiff = now.getTime() - created.getTime();
+  if (recentDiff < 300000) { // Less than 5 minutes
+    return 'Procesando';
+  }
+  
+  return 'Confirmada';
+}
+
+/**
  * Get flag icon for transaction based on available data
  */
 function getFlagForTransaction(transaction: any): string {
+  // Try to determine flag based on payment rails/chains from Bridge data
+  if (transaction.source?.payment_rail || transaction.destination?.payment_rail) {
+    const sourceRail = transaction.source?.payment_rail?.toLowerCase();
+    const destRail = transaction.destination?.payment_rail?.toLowerCase();
+    
+    // Map payment rails to appropriate flags
+    const railFlags: Record<string, string> = {
+      'solana': '🔵', // Solana blue
+      'polygon': '🟣', // Polygon purple
+      'ethereum': '🔷', // Ethereum diamond
+      'bitcoin': '🟡', // Bitcoin gold
+      'arbitrum': '🔵', // Arbitrum blue
+      'optimism': '🔴', // Optimism red
+      'base': '🔵', // Base blue
+      'avalanche': '🔴', // Avalanche red
+      'bsc': '🟡', // BSC yellow
+    };
+    
+    // Use destination rail if available, otherwise source rail
+    const rail = destRail || sourceRail;
+    if (rail && railFlags[rail]) {
+      return railFlags[rail];
+    }
+  }
+  
   // Try to determine country/region from transaction data
   if (transaction.metadata?.country) {
     const countryFlags: Record<string, string> = {
@@ -249,6 +401,6 @@ function getFlagForTransaction(transaction: any): string {
   }
 
   // Default flags based on transaction type or random for variety
-  const defaultFlags = ['🇺🇸', '🇪🇺', '🇲🇽', '🇧🇷', '🇨🇦'];
+  const defaultFlags = ['🔵', '🟣', '🔷', '🟡', '🔴'];
   return defaultFlags[Math.floor(Math.random() * defaultFlags.length)];
 } 

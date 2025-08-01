@@ -3,16 +3,19 @@
 
 export interface MoonCardData {
   id: string; // Moon Card ID
-  balance: number;
-  available_balance: number;
+  balance: number | string;
+  true_balance?: number | string;
+  available_balance: number | string;
   expiration: string; // ISO date string
   display_expiration: string; // MM/YY format
   card_product_id: string;
   pan: string; // Primary Account Number
   cvv: string;
   support_token: string;
-  terminated: boolean;
-  frozen: boolean;
+  terminated: boolean | number;
+  frozen: boolean | number;
+  activated?: boolean;
+  gift_card_info?: any;
 }
 
 export interface MoonCardResponse {
@@ -45,8 +48,8 @@ export interface MoonCardProductsResponse {
 
 export interface Card {
   id: string; // Our Supabase UUID
-  createdAt: string;
-  updatedAt: string;
+  "createdAt": string; // Match database schema with quotes
+  "updatedAt": string; // Match database schema with quotes
   profile_id: string;
   moon_card_id: string; // Moon's UUID
   balance: number;

@@ -20,6 +20,7 @@ export function useTransactionsQuery(limit: number = 5) {
       }
       
       console.log('✅ Transactions fetched successfully:', result.data?.length);
+      console.log(result.data)
       return result.data || [];
     },
     enabled: !!bridgeCustomerId,

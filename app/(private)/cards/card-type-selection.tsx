@@ -9,12 +9,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -82,9 +82,9 @@ export default function CardTypeSelectionScreen() {
   };
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('es-BO', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'BOB',
+      currency: 'USD',
       minimumFractionDigits: 2,
     }).format(amount);
   };

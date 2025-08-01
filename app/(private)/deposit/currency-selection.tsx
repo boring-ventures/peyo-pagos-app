@@ -1,14 +1,14 @@
 import { ThemedText } from "@/app/components/ThemedText";
 import { ThemedView } from "@/app/components/ThemedView";
+import { useDepositNavigation } from "@/app/hooks/useDepositNavigation";
 import { useThemeColor } from "@/app/hooks/useThemeColor";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import React from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -31,17 +31,33 @@ const currencyOptions: CurrencyOption[] = [
     route: "/(private)/deposit/bolivianos",
   },
   {
-    id: "crypto",
-    title: "Crypto",
+    id: "usdc",
+    title: "USDC",
+    icon: "€",
+    iconColor: "#FFFFFF",
+    backgroundColor: "#2775CA",
+    route: "/(private)/deposit/network-selection",
+  },
+  {
+    id: "usdt",
+    title: "USDT",
     icon: "₿",
     iconColor: "#FFFFFF",
-    backgroundColor: "#FF9500",
-    route: "/(private)/deposit/crypto",
+    backgroundColor: "#26A69A",
+    route: "/(private)/deposit/network-selection",
+  },
+  {
+    id: "dai",
+    title: "DAI",
+    icon: "◈",
+    iconColor: "#FFFFFF",
+    backgroundColor: "#F5AC37",
+    route: "/(private)/deposit/network-selection",
   },
 ];
 
 export default function CurrencySelectionScreen() {
-  const router = useRouter();
+  const { navigateToHome, navigateToNetworkSelection, navigateToBolivianosForm } = useDepositNavigation();
   const textColor = useThemeColor({}, "text");
   const subtextColor = useThemeColor({}, "textSecondary");
   const cardColor = useThemeColor({}, "card");
@@ -50,22 +66,15 @@ export default function CurrencySelectionScreen() {
 
   const handleCurrencySelect = (option: CurrencyOption) => {
     if (option.id === "bolivianos") {
-      router.push("/(private)/deposit/bolivianos-form");
+      navigateToBolivianosForm();
     } else {
-      // Skip crypto-selection since only USDC is supported
-      // Go directly to network selection
-      router.push({
-        pathname: "/(private)/deposit/network-selection",
-        params: {
-          cryptoType: "usdc",
-          cryptoName: "USDC",
-        },
-      });
+      // Navigate to network selection with the selected crypto
+      navigateToNetworkSelection(option.id, option.title);
     }
   };
 
   const handleBackPress = () => {
-    router.back();
+    navigateToHome();
   };
 
   return (
