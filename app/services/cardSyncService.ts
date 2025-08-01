@@ -33,21 +33,11 @@ export const cardSyncService = {
     };
 
     try {
-      // Get all cards from Moon
-      const moonResponse = await moonService.getAllCards(1, 100); // Get up to 100 cards
-      
-      if (!moonResponse.success || !moonResponse.data) {
-        result.errors.push(`Failed to get Moon cards: ${moonResponse.error}`);
-        return result;
-      }
-
-      const moonCards = moonResponse.data.cards;
-      console.log(`📊 Found ${moonCards.length} cards in Moon`);
-
-      // Get existing cards from Supabase for this profile
+      // Step 1: Get existing cards from Supabase for this profile
+      console.log("📊 Step 1: Getting existing cards from Supabase...");
       const { data: existingCards, error: fetchError } = await supabase
         .from("cards")
-        .select("moon_card_id, id")
+        .select("moon_card_id, id, balance, available_balance, expiration, display_expiration, terminated, frozen")
         .eq("profile_id", profileId)
         .eq("is_active", true);
 
@@ -56,78 +46,111 @@ export const cardSyncService = {
         return result;
       }
 
-      const existingMoonCardIds = new Set(existingCards?.map(card => card.moon_card_id) || []);
-      console.log(`📊 Found ${existingMoonCardIds.size} existing cards in Supabase`);
+      if (!existingCards || existingCards.length === 0) {
+        console.log("📊 No existing cards found in Supabase for this user");
+        result.success = true;
+        return result;
+      }
 
-      // Process each Moon card
-      for (const moonCard of moonCards) {
+      const existingCardsMap = new Map();
+      const userMoonCardIds = new Set();
+      
+      existingCards.forEach(card => {
+        existingCardsMap.set(card.moon_card_id, card);
+        userMoonCardIds.add(card.moon_card_id);
+      });
+      
+      console.log(`📊 Found ${existingCardsMap.size} existing cards in Supabase for user`);
+
+      // Step 2: Get all cards from Moon API
+      console.log("📊 Step 2: Getting cards from Moon API...");
+      const moonResponse = await moonService.listCards(1, 10); // Use perPage=10 as per Moon API docs
+      
+      if (!moonResponse.success || !moonResponse.data) {
+        result.errors.push(`Failed to get Moon cards: ${moonResponse.error}`);
+        return result;
+      }
+
+      const moonCards = moonResponse.data.cards;
+      console.log(`📊 Found ${moonCards.length} total cards in Moon API`);
+
+      // Step 3: Filter Moon cards to only include user's cards
+      const userMoonCards = moonCards.filter(moonCard => userMoonCardIds.has(moonCard.id));
+      console.log(`📊 Filtered to ${userMoonCards.length} cards that belong to this user`);
+
+      if (userMoonCards.length === 0) {
+        console.log("📊 No user cards found in Moon API response");
+        result.success = true;
+        return result;
+      }
+
+      // Step 4: Process each user's Moon card and sync with Supabase
+      console.log("📊 Step 4: Processing and syncing user's cards...");
+      for (const moonCard of userMoonCards) {
         try {
           const moonCardId = moonCard.id;
-          const isNewCard = !existingMoonCardIds.has(moonCardId);
+          const existingCard = existingCardsMap.get(moonCardId);
 
-          if (isNewCard) {
-            // Create new card in Supabase
-            const cardId = createId();
-            const availableBalance = moonCard.available_balance || moonCard.balance;
+          if (!existingCard) {
+            console.warn(`⚠️ Card ${moonCardId} not found in existing cards map, skipping`);
+            result.details.skipped++;
+            continue;
+          }
 
-            const cardData = {
-              id: cardId,
-              profile_id: profileId,
-              moon_card_id: moonCardId,
+          // Validate required fields from Moon API response
+          const missingFields: string[] = [];
+          if (!moonCard.balance && moonCard.balance !== 0) missingFields.push("balance");
+          if (!moonCard.expiration) missingFields.push("expiration");
+          if (!moonCard.display_expiration) missingFields.push("display_expiration");
+          if (!moonCard.card_product_id) missingFields.push("card_product_id");
+          if (!moonCard.pan) missingFields.push("pan");
+          if (!moonCard.cvv) missingFields.push("cvv");
+          if (!moonCard.support_token) missingFields.push("support_token");
+
+          if (missingFields.length > 0) {
+            console.warn(`⚠️ Card ${moonCardId} missing fields: ${missingFields.join(", ")}`);
+            result.errors.push(`Card ${moonCardId} missing fields: ${missingFields.join(", ")}`);
+            result.details.skipped++;
+            continue;
+          }
+
+          // Update existing card - check if data has changed
+          const availableBalance = moonCard.available_balance !== undefined ? moonCard.available_balance : moonCard.balance;
+          
+          const hasChanges = 
+            Number(existingCard.balance) !== Number(moonCard.balance) ||
+            Number(existingCard.available_balance) !== Number(availableBalance) ||
+            existingCard.expiration !== moonCard.expiration ||
+            existingCard.display_expiration !== moonCard.display_expiration ||
+            existingCard.terminated !== Boolean(moonCard.terminated) ||
+            existingCard.frozen !== Boolean(moonCard.frozen);
+
+          if (hasChanges) {
+            const updateData = {
               balance: Number(moonCard.balance),
               available_balance: Number(availableBalance),
               expiration: moonCard.expiration,
               display_expiration: moonCard.display_expiration,
-              card_product_id: moonCard.card_product_id,
-              pan: moonCard.pan,
-              cvv: moonCard.cvv,
-              support_token: moonCard.support_token,
               terminated: Boolean(moonCard.terminated),
               frozen: Boolean(moonCard.frozen),
-              is_active: true,
               updatedAt: new Date().toISOString(),
             };
 
-            const { error: insertError } = await supabase
+            const { error: updateError } = await supabase
               .from("cards")
-              .insert(cardData);
+              .update(updateData)
+              .eq("id", existingCard.id);
 
-            if (insertError) {
-              console.error(`❌ Failed to insert card ${moonCardId}:`, insertError);
-              result.errors.push(`Failed to insert card ${moonCardId}: ${insertError.message}`);
+            if (updateError) {
+              console.error(`❌ Failed to update card ${moonCardId}:`, updateError);
+              result.errors.push(`Failed to update card ${moonCardId}: ${updateError.message}`);
             } else {
-              console.log(`✅ Created new card: ${moonCardId}`);
-              result.details.created++;
+              console.log(`✅ Updated existing card: ${moonCardId}`);
+              result.details.updated++;
             }
           } else {
-            // Update existing card
-            const existingCard = existingCards?.find(card => card.moon_card_id === moonCardId);
-            if (existingCard) {
-              const availableBalance = moonCard.available_balance || moonCard.balance;
-
-              const updateData = {
-                balance: Number(moonCard.balance),
-                available_balance: Number(availableBalance),
-                expiration: moonCard.expiration,
-                display_expiration: moonCard.display_expiration,
-                terminated: Boolean(moonCard.terminated),
-                frozen: Boolean(moonCard.frozen),
-                updatedAt: new Date().toISOString(),
-              };
-
-              const { error: updateError } = await supabase
-                .from("cards")
-                .update(updateData)
-                .eq("id", existingCard.id);
-
-              if (updateError) {
-                console.error(`❌ Failed to update card ${moonCardId}:`, updateError);
-                result.errors.push(`Failed to update card ${moonCardId}: ${updateError.message}`);
-              } else {
-                console.log(`✅ Updated existing card: ${moonCardId}`);
-                result.details.updated++;
-              }
-            }
+            console.log(`⏭️ Card ${moonCardId} already up to date, skipping`);
+            result.details.skipped++;
           }
 
           result.synced++;
@@ -160,8 +183,8 @@ export const cardSyncService = {
     try {
       console.log(`🔄 Syncing single Moon card: ${moonCardId}`);
 
-      // Get card details from Moon
-      const moonResponse = await moonService.getCardDetails(moonCardId);
+      // Get card details from Moon using the correct method
+      const moonResponse = await moonService.getCard(moonCardId);
       
       if (!moonResponse.success || !moonResponse.data) {
         return {
@@ -170,8 +193,25 @@ export const cardSyncService = {
         };
       }
 
-      const moonCard = moonResponse.data;
-      const availableBalance = moonCard.available_balance || moonCard.balance;
+      const moonCard = moonResponse.data.card; // Note: getCard returns { card: MoonCardData }
+      const availableBalance = moonCard.available_balance !== undefined ? moonCard.available_balance : moonCard.balance;
+
+      // Validate required fields
+      const missingFields: string[] = [];
+      if (!moonCard.balance && moonCard.balance !== 0) missingFields.push("balance");
+      if (!moonCard.expiration) missingFields.push("expiration");
+      if (!moonCard.display_expiration) missingFields.push("display_expiration");
+      if (!moonCard.card_product_id) missingFields.push("card_product_id");
+      if (!moonCard.pan) missingFields.push("pan");
+      if (!moonCard.cvv) missingFields.push("cvv");
+      if (!moonCard.support_token) missingFields.push("support_token");
+
+      if (missingFields.length > 0) {
+        return {
+          success: false,
+          error: `Card missing required fields: ${missingFields.join(", ")}`,
+        };
+      }
 
       // Check if card already exists in Supabase
       const { data: existingCard, error: fetchError } = await supabase

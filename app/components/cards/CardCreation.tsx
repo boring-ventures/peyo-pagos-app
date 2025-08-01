@@ -101,7 +101,7 @@ export function CardCreation({ onCardCreated, style, cardProductId, cardProductN
 
       setIsCheckingBalance(false);
       
-      // Step 2: Get profile ID
+      // Step 2: Get profile ID for card creation
       const { supabaseAdmin } = await import('@/app/services/supabaseAdmin');
       const { data: profileData, error: profileError } = await supabaseAdmin
         .from('profiles')

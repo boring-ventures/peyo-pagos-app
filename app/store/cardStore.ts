@@ -205,21 +205,8 @@ export const useCardStore = create<CardState>()(
           console.log("💰 Safe amount to use:", safeAmount);
 
           // Call Moon API to create card with required parameters
-          // First try without end_customer_id to test if it's optional
-          console.log("🔄 First attempt: Creating card without end_customer_id...");
-          let moonResponse = await moonService.createCard(cardProductId, "", safeAmount);
-
-          // If first attempt fails, try with end_customer_id
-          if (!moonResponse.success && moonResponse.error?.includes("end_customer_id")) {
-            console.log("🔄 Second attempt: Creating card with end_customer_id...");
-            moonResponse = await moonService.createCard(cardProductId, userId, safeAmount);
-          }
-
-          // If the safe amount fails, try with $1 as a last resort
-          if (!moonResponse.success && moonResponse.error?.includes("Amount greater than balance")) {
-            console.log("🔄 Trying with $1 as fallback...");
-            moonResponse = await moonService.createCard(cardProductId, userId, 1);
-          }
+          console.log("🔄 Creating card with Moon API...");
+          const moonResponse = await moonService.createCard(cardProductId, userId, safeAmount);
 
           if (!moonResponse.success || !moonResponse.data) {
             const errorMsg = moonResponse.error || "Error creando tarjeta en Moon API";
@@ -252,11 +239,11 @@ export const useCardStore = create<CardState>()(
             "🔍 Debug - Moon Card Data:",
             JSON.stringify(moonCard, null, 2)
           );
-          console.log("🔍 Debug - Original Moon Card ID:", moonCard?.id);
+          console.log("🔍 Debug - Moon Card ID:", moonCard?.id);
 
-          // Generate our own unique moon_card_id since sandbox always returns the same ID
-          const uniqueMoonCardId = createId();
-          console.log("🔍 Debug - Generated Unique Moon Card ID:", uniqueMoonCardId);
+          // Use the actual Moon card ID from the API response
+          const moonCardId = moonCard.id;
+          console.log("🔍 Debug - Using Moon Card ID:", moonCardId);
 
           // Handle missing available_balance by using balance as fallback
           let availableBalance = moonCard.available_balance;
@@ -326,7 +313,7 @@ export const useCardStore = create<CardState>()(
           const cardData = {
             id: cardId,
             profile_id: profileId,
-            moon_card_id: uniqueMoonCardId, // Use our generated ID instead of moonCard.id
+            moon_card_id: moonCardId, // Use the actual Moon card ID
             balance: Number(moonCard.balance),
             available_balance: Number(availableBalance), // Use the fallback value
             expiration: moonCard.expiration,
@@ -346,7 +333,7 @@ export const useCardStore = create<CardState>()(
           // Save to Supabase
           console.log("💾 Attempting to save card to Supabase...");
           console.log("💾 Profile ID:", profileId);
-          console.log("💾 Moon Card ID (generated):", uniqueMoonCardId);
+          console.log("💾 Moon Card ID:", moonCardId);
           console.log("💾 Supabase Card ID:", cardId);
           
           try {
@@ -363,45 +350,12 @@ export const useCardStore = create<CardState>()(
               
               // Check if it's a duplicate moon_card_id error
               if (error.code === '23505' && error.message.includes('moon_card_id')) {
-                console.error("❌ Duplicate moon_card_id detected, generating new one...");
-                // Generate a new unique moon_card_id and retry
-                const newUniqueMoonCardId = createId();
-                console.log("🔄 New moon_card_id:", newUniqueMoonCardId);
-                
-                const retryCardData = {
-                  ...cardData,
-                  moon_card_id: newUniqueMoonCardId,
-                };
-                
-                console.log("🔄 Retrying with new moon_card_id...");
-                const { data: retryData, error: retryError } = await supabase
-                  .from("cards")
-                  .insert(retryCardData)
-                  .select()
-                  .single();
-                  
-                if (retryError) {
-                  console.error("❌ Retry failed:", retryError);
-                  set({
-                    createCardError: "Error guardando tarjeta (duplicado)",
-                    isCreatingCard: false,
-                  });
-                  return { success: false, error: "Error guardando tarjeta (duplicado)" };
-                }
-                
-                const newCard = retryData as Card;
-                console.log("✅ Card created successfully on retry:", newCard.id);
-                
-                // Update store with new card
-                const state = get();
+                console.error("❌ Duplicate moon_card_id detected, this should not happen with real Moon IDs");
                 set({
-                  cards: [newCard, ...state.cards],
-                  currentCard: newCard,
+                  createCardError: "Error: ID de tarjeta duplicado (error interno)",
                   isCreatingCard: false,
-                  lastFetchedAt: new Date(),
                 });
-                
-                return { success: true, card: newCard };
+                return { success: false, error: "Error: ID de tarjeta duplicado (error interno)" };
               }
               
               set({

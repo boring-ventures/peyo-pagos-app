@@ -125,13 +125,13 @@ export const moonService = {
       console.log('👤 End customer ID:', endCustomerId);
       console.log('💰 Amount:', amount);
       
+      // According to Moon API documentation: POST /v1/api-gateway/card/{card_product_id}
+      // The request body should only contain the amount and end_customer_id if needed
       const requestBody: any = {
-        amount: amount,
-        card_type: "VIRTUAL",
-        card_currency: "USD"
+        amount: amount
       };
 
-      // Only add end_customer_id if provided (test if it's optional)
+      // Only add end_customer_id if provided
       if (endCustomerId) {
         requestBody.end_customer_id = endCustomerId;
       }
@@ -223,18 +223,42 @@ export const moonService = {
   },
 
   /**
-   * List all cards (if Moon API supports this endpoint)
-   * Note: This endpoint might not exist in Moon API, keeping for future use
+   * Get all cards from Moon API
+   * GET /v1/api-gateway/card
+   * According to Moon documentation: https://docs.paywithmoon.com/reference/get_v1-api-gateway-card
    */
-  listCards: async (): Promise<{
+  listCards: async (page: number = 1, perPage: number = 10): Promise<{
     success: boolean;
-    data?: MoonCardResponse[];
+    data?: {
+      cards: MoonCardData[];
+      pagination: {
+        current_page: number;
+        from: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+      };
+    };
     error?: string;
   }> => {
     try {
-      console.log('📋 Listing Moon cards');
+      console.log('📋 Listing Moon cards...');
       
-      const response = await moonRequest<MoonCardResponse[]>('/v1/api-gateway/cards');
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        per_page: perPage.toString(), // Use 'per_page' instead of 'limit'
+      });
+      
+      const response = await moonRequest<{
+        cards: MoonCardData[];
+        pagination: {
+          current_page: number;
+          from: number;
+          last_page: number;
+          per_page: number;
+          total: number;
+        };
+      }>(`/v1/api-gateway/card?${queryParams.toString()}`);
 
       if (response.error) {
         console.error('❌ Moon API error listing cards:', response.error);
@@ -246,7 +270,7 @@ export const moonService = {
 
       return {
         success: true,
-        data: response.data || [],
+        data: response.data,
       };
 
     } catch (error) {
@@ -441,59 +465,6 @@ export const moonService = {
       };
     } catch (error) {
       console.error('❌ Moon API: Error getting reserve balance:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-      };
-    }
-  },
-
-  /**
-   * Get all cards from Moon
-   * GET /v1/api-gateway/card?page=1&limit=10
-   */
-  getAllCards: async (page: number = 1, limit: number = 10): Promise<{
-    success: boolean;
-    data?: {
-      cards: MoonCardData[];
-      pagination: {
-        current_page: number;
-        from: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-      };
-    };
-    error?: string;
-  }> => {
-    try {
-      console.log('💳 Getting all Moon cards...');
-
-      const response = await fetch(`${MOON_API_BASE_URL}/v1/api-gateway/card?page=${page}&limit=${limit}`, {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'x-api-key': MOON_API_KEY,
-        },
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ Moon API: Failed to get cards:', response.status, responseData);
-        return {
-          success: false,
-          error: responseData.message || `HTTP ${response.status}: ${response.statusText}`,
-        };
-      }
-
-      console.log('✅ Moon API: Cards retrieved successfully:', responseData);
-      return {
-        success: true,
-        data: responseData,
-      };
-    } catch (error) {
-      console.error('❌ Moon API: Error getting cards:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',

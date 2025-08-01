@@ -3,9 +3,9 @@ import { useCardStore } from '@/app/store/cardStore';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    Alert,
-    StyleSheet,
-    View,
+  Alert,
+  StyleSheet,
+  View,
 } from 'react-native';
 import { ThemedButton } from '../ThemedButton';
 import { ThemedText } from '../ThemedText';
@@ -70,28 +70,35 @@ export function CardSyncButton({ profileId, style }: CardSyncButtonProps) {
         </ThemedText>
         
         <ThemedText style={[styles.description, { color: subtextColor }]}>
-          Sincroniza las tarjetas creadas en Moon con la base de datos local para mantener todo actualizado.
+          Sincroniza las tarjetas existentes del usuario con Moon API. Obtiene las tarjetas que ya tienes en la base de datos y actualiza sus balances y estados desde Moon.
         </ThemedText>
 
         <View style={styles.features}>
           <View style={styles.featureItem}>
             <Ionicons name="checkmark-circle" size={16} color={tintColor} />
             <ThemedText style={[styles.featureText, { color: textColor }]}>
-              Obtiene tarjetas desde Moon API
+              Obtiene tarjetas existentes del usuario en Supabase
             </ThemedText>
           </View>
           
           <View style={styles.featureItem}>
             <Ionicons name="checkmark-circle" size={16} color={tintColor} />
             <ThemedText style={[styles.featureText, { color: textColor }]}>
-              Crea nuevas tarjetas en Supabase
+              Filtra solo las tarjetas que pertenecen al usuario
             </ThemedText>
           </View>
           
           <View style={styles.featureItem}>
             <Ionicons name="checkmark-circle" size={16} color={tintColor} />
             <ThemedText style={[styles.featureText, { color: textColor }]}>
-              Actualiza tarjetas existentes
+              Actualiza balances, estados y fechas de expiración
+            </ThemedText>
+          </View>
+
+          <View style={styles.featureItem}>
+            <Ionicons name="checkmark-circle" size={16} color={tintColor} />
+            <ThemedText style={[styles.featureText, { color: textColor }]}>
+              Solo actualiza si hay cambios reales en los datos
             </ThemedText>
           </View>
         </View>
